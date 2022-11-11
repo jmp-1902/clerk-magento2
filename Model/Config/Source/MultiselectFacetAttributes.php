@@ -52,12 +52,11 @@ class MultiselectFacetAttributes implements ArrayInterface
     public function toArray()
     {
         $attributes = $this->getConfiguredAttributes();
-	
-	$attributes_defined = is_null($attributes) ? false : true;
+	    $attributes_defined = is_null($attributes) ? false : true;
 
-	if(!$attributes_defined){
-		return [];
-	}
+        if(!$attributes_defined){
+            return [];
+        }
 
         $values = [];
 
