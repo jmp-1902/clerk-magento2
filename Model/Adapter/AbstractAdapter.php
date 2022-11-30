@@ -54,6 +54,11 @@ abstract class AbstractAdapter
     protected $fieldHandlers = [];
 
     /**
+     * @var object
+     */
+    protected $typeListInterface;
+
+    /**
      * AbstractAdapter constructor.
      *
      * @param ScopeConfigInterface $scopeConfig
@@ -66,7 +71,8 @@ abstract class AbstractAdapter
         ManagerInterface $eventManager,
         StoreManagerInterface $storeManager,
         CollectionFactory $collectionFactory,
-        ClerkLogger $clerkLogger
+        ClerkLogger $clerkLogger,
+        \Magento\Framework\App\Cache\TypeListInterface $typeListInterface
     )
     {
         $this->clerk_logger = $clerkLogger;
@@ -74,7 +80,7 @@ abstract class AbstractAdapter
         $this->eventManager = $eventManager;
         $this->storeManager = $storeManager;
         $this->collectionFactory = $collectionFactory;
-
+        $this->cacheTypeList = $typeListInterface;
         $this->addFieldHandlers();
     }
 

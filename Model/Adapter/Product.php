@@ -69,6 +69,12 @@ class Product extends AbstractAdapter
      * @var ProductMetadataInterface
      */
     protected $ProductMetadataInterface;
+
+    /**
+     * @var object
+     */
+    protected $typeListInterface;
+
     /**
      * Product constructor.
      *
@@ -89,8 +95,8 @@ class Product extends AbstractAdapter
         \Magento\CatalogInventory\Helper\Stock $stockFilter,
         Data $taxHelper,
         StockStateInterface $StockStateInterface,
-        ProductMetadataInterface $ProductMetadataInterface
-
+        ProductMetadataInterface $ProductMetadataInterface,
+        \Magento\Framework\App\Cache\TypeListInterface $typeListInterface
     )
     {
         $this->taxHelper = $taxHelper;
@@ -100,7 +106,8 @@ class Product extends AbstractAdapter
         $this->storeManager = $storeManager;
         $this->StockStateInterface = $StockStateInterface;
         $this->ProductMetadataInterface = $ProductMetadataInterface;
-        parent::__construct($scopeConfig, $eventManager, $storeManager, $collectionFactory, $Clerklogger);
+        $this->cacheTypeList = $typeListInterface;
+        parent::__construct($scopeConfig, $eventManager, $storeManager, $collectionFactory, $Clerklogger, $typeListInterface);
     }
 
     /**
@@ -112,8 +119,8 @@ class Product extends AbstractAdapter
     {
         try {
 
+            $this->cacheTypeList->cleanType(\Magento\Framework\App\Cache\Type\Collection::TYPE_IDENTIFIER);
             $collection = $this->collectionFactory->create();
-
             $collection->addFieldToSelect('*');
             $collection->addStoreFilter($scopeid);
             $productMetadata = $this->ProductMetadataInterface;
