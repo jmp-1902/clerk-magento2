@@ -3,10 +3,17 @@
 ?>
 <span
     class="clerk"
+    id="clerk_live_search"
     data-template="@<?php echo $block->getLiveSearchTemplate(); ?>"
     data-instant-search-suggestions="<?php echo($block->getSuggestions() ? $block->getSuggestions() : "0"); ?>"
     data-instant-search-categories="<?php echo($block->getCategories() ? $block->getCategories() : "0"); ?>"
     data-instant-search-pages="<?php echo($block->getPages() ? $block->getPages() : "0"); ?>"
+    data-facets-attributes='["price","categories","vendor"]'
+    data-facets-titles='{"price":"Price","categories":"Categories","vendor":"Brand"}'
+    data-facets-target="#clerk_live_search_facet_holder"
+    data-facets-price-prepend="€"
+    data-facets-view-more-text="View More"
+    data-facets-searchbox-text="Search for "
     <?php
     if('all' !== $block->getPagesType()):
     ?>
@@ -17,6 +24,20 @@
     data-instant-search-positioning="<?php echo $block->getDropdownPosition(); ?>"
     data-instant-search="<?php echo(!empty($block->getInputSelector()) ? $block->getInputSelector() : '#search'); ?>"
 ></span>
+<span id="clerk_live_search_facet_holder"></span>
+<style>
+    #clerk_live_search_facet_holder {
+        display: none !important;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+        Clerk('on', 'rendered', '#clerk_live_search', function(){
+            let facets = document.querySelector('#clerk_live_search_facet_holder > span');
+            document.querySelector('#clerk_livesearch_facets_wrapper').append(facets);
+        });
+    });
+</script>
 <?php
 if (!empty($block->getFormSelector())):
     $search_page_route = $block->getShopBaseDomainUrl() . 'catalogsearch/result';
