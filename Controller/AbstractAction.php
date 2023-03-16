@@ -700,8 +700,6 @@ abstract class AbstractAction extends Action
                 }
             }
 
-            return false;
-
         } catch (\Exception $e) {
 
             $this->clerk_logger->error('Getting Request Body ERROR', ['error' => $e->getMessage()]);
