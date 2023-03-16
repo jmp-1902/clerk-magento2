@@ -168,8 +168,8 @@ abstract class AbstractAction extends Action
             $version = $this->_product_metadata->getVersion();
             header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
 
-            $this->privateKey = $this->getRequestBodyParam('private_key');
-            $this->publicKey = $this->getRequestBodyParam('key');
+            $this->privateKey = $this->getRequestBodyParam('private_key') ? $this->getRequestBodyParam('private_key') : $request->getParam('private_key');
+            $this->publicKey = $this->getRequestBodyParam('key') ? $this->getRequestBodyParam('key') : $request->getParam('key');
 
             //Validate supplied keys
             if (($this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1) || !$this->privateKey || !$this->publicKey) {
