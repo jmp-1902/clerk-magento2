@@ -181,8 +181,10 @@ abstract class AbstractAction extends Action
             $this->publicKey = $this->getRequestBodyParam('key');
             $this->headerToken = $this->getHeaderToken();
 
+            $authorized = $this->verifyJwtToken($this->headerToken);
+
             //Validate supplied keys
-            if (($this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1) || !$this->publicKey) {
+            if ( ( $this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1 ) || ! $this->publicKey || ! $authorized ) {
                 $this->_actionFlag->set('', self::FLAG_NO_DISPATCH, true);
                 $this->_actionFlag->set('', self::FLAG_NO_POST_DISPATCH, true);
 
