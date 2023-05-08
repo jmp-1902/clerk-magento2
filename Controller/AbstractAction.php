@@ -2,6 +2,7 @@
 
 namespace Clerk\Clerk\Controller;
 
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
@@ -19,6 +20,12 @@ use Magento\Framework\App\ProductMetadataInterface;
 
 abstract class AbstractAction extends Action
 {
+
+    /**
+     * @var Api
+     */
+    protected $_api;
+
     /**
      * @var RequestApi
      */
@@ -129,6 +136,7 @@ abstract class AbstractAction extends Action
      * @param ClerkLogger $clerk_logger
      * @param ProductMetadataInterface $product_metadata
      * @param RequestApi $request_api
+     * @param Api $api
      */
     public function __construct(
         Context $context,
@@ -138,7 +146,8 @@ abstract class AbstractAction extends Action
         ModuleList $moduleList,
         ClerkLogger $clerk_logger,
         ProductMetadataInterface $product_metadata,
-        RequestApi $request_api
+        RequestApi $request_api,
+        Api $api
         )
     {
         $this->moduleList = $moduleList;
@@ -148,6 +157,7 @@ abstract class AbstractAction extends Action
         $this->clerk_logger = $clerk_logger;
         $this->_product_metadata = $product_metadata;
         $this->_request_api = $request_api;
+        $this->_api = $api;
         parent::__construct($context);
     }
 
@@ -169,6 +179,7 @@ abstract class AbstractAction extends Action
             header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
 
             $this->publicKey = $this->getRequestBodyParam('key');
+            $this->headerToken = $this->getHeaderToken();
 
             //Validate supplied keys
             if (($this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1) || !$this->publicKey) {
@@ -220,6 +231,67 @@ abstract class AbstractAction extends Action
             $this->clerk_logger->error('Validating API Keys ERROR', ['error' => $e->getMessage()]);
 
         }
+    }
+
+    /**
+     * Get Token from Request Header
+     * @return string
+     */
+    private function getHeaderToken()
+    {
+        try {
+            $token = '';
+            $auth_header = $this->_request_api->getHeader('Authorization');
+            if( null !== $auth_header && is_string( $auth_header ) ) {
+                $token = count( explode( ' ', $auth_header ) ) > 1 ? explode( ' ', $auth_header )[1] : $token;
+            }
+
+            return $token;
+
+        } catch (\Exception $e) {
+
+            $this->logger->error('getHeaderToken ERROR', ['error' => $e->getMessage()]);
+
+        }
+    }
+
+    /**
+     * Function calls JWT verification endpoint
+     * @param string
+     * @return bool
+     */
+    private function verifyJwtToken ( $token_string = null ) {
+
+        if( ! $token_string || ! is_string( $token_string ) ) {
+            return false;
+        }
+
+        $body_params = array(
+            'token' => $token_string
+        );
+
+        $response = $this->_api->postTokenVerification($body_params);
+
+        if( ! $response ) {
+            return false;
+        }
+
+        try {
+
+            $rsp_array = json_decode($response, true);
+
+            if( isset($rsp_array['status']) && $rsp_array['status'] == 'ok') {
+                return true;
+            }
+
+            return false;
+
+        } catch (\Exception $e) {
+
+            $this->logger->error('verifyJwtToken ERROR', ['error' => $e->getMessage()]);
+
+        }
+
     }
 
     /**

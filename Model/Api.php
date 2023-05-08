@@ -262,6 +262,24 @@ class Api
         }
     }
 
+    public function postTokenVerification($data = null)
+    {
+        if( ! $data ) {
+            return false;
+        }
+        try {
+
+            $url = $this->baseUrl . 'token/verify';
+            $response = $this->_curl_post($url, $data);
+            return $response;
+
+        } catch (Exception $e) {
+
+            $this->logger->error(' Communicator "postTokenVerification"', ['error' => $e->getMessage()]);
+
+        }
+    }
+
     public function getEndpointForContent($contentId)
     {
         try {
