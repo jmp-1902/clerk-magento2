@@ -168,11 +168,10 @@ abstract class AbstractAction extends Action
             $version = $this->_product_metadata->getVersion();
             header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
 
-            $this->privateKey = $this->getRequestBodyParam('private_key');
             $this->publicKey = $this->getRequestBodyParam('key');
 
             //Validate supplied keys
-            if (($this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1) || !$this->privateKey || !$this->publicKey) {
+            if (($this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1) || !$this->publicKey) {
                 $this->_actionFlag->set('', self::FLAG_NO_DISPATCH, true);
                 $this->_actionFlag->set('', self::FLAG_NO_POST_DISPATCH, true);
 
@@ -232,11 +231,9 @@ abstract class AbstractAction extends Action
     {
 
         try {
-
-            $privateKey = $this->getRequestBodyParam('private_key');
             $publicKey = $this->getRequestBodyParam('key');
             $scopeID = $this->_storeManager->getDefaultStoreView()->getId();
-            if ($this->timingSafeEquals($this->getPrivateDefaultKey($scopeID), $privateKey) && $this->timingSafeEquals($this->getPublicDefaultKey($scopeID), $publicKey)) {
+            if ($this->timingSafeEquals($this->getPublicDefaultKey($scopeID), $publicKey)) {
                 return $scopeID;
             }
 
@@ -258,12 +255,10 @@ abstract class AbstractAction extends Action
     {
 
         try {
-
-            $privateKey = $this->getRequestBodyParam('private_key');
             $publicKey = $this->getRequestBodyParam('key');
             $storeids = $this->getStores();
             foreach ($storeids as $scopeID) {
-                if ($this->timingSafeEquals($this->getPrivateKey($scopeID), $privateKey) && $this->timingSafeEquals($this->getPublicKey($scopeID), $publicKey)) {
+                if ($this->timingSafeEquals($this->getPublicKey($scopeID), $publicKey)) {
                     return $scopeID;
                 }
             }
@@ -286,12 +281,10 @@ abstract class AbstractAction extends Action
     {
 
         try {
-
-            $privateKey = $this->getRequestBodyParam('private_key');
             $publicKey = $this->getRequestBodyParam('key');
             $websiteids = $this->getWebsites();
             foreach ($websiteids as $scopeID) {
-                if ($this->timingSafeEquals($this->getPrivateWebsiteKey($scopeID), $privateKey) && $this->timingSafeEquals($this->getPublicWebsiteKey($scopeID), $publicKey)) {
+                if ($this->timingSafeEquals($this->getPublicWebsiteKey($scopeID), $publicKey)) {
                     return $scopeID;
                 }
             }
