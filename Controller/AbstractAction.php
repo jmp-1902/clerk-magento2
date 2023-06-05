@@ -181,10 +181,12 @@ abstract class AbstractAction extends Action
             $this->publicKey = $this->getRequestBodyParam('key');
             $this->headerToken = $this->getHeaderToken();
 
-            $authorized = $this->verifyJwtToken($this->headerToken);
+            // Check Header Token
+            $authorized = (bool)$this->verifyJwtToken($this->headerToken);
+            // Check API Key Identifies at least one scope
+            $identified = (bool)($this->verifyKeys() !== -1 || $this->verifyWebsiteKeys() !== -1 || $this->verifyDefaultKeys() !== -1 );
 
-            //Validate supplied keys
-            if ( ( $this->verifyKeys() === -1 && $this->verifyWebsiteKeys() === -1 && $this->verifyDefaultKeys() === -1 ) || ! $this->publicKey || ! $authorized ) {
+            if ( ! $identified || ! $authorized ) {
                 $this->_actionFlag->set('', self::FLAG_NO_DISPATCH, true);
                 $this->_actionFlag->set('', self::FLAG_NO_POST_DISPATCH, true);
 
@@ -243,7 +245,7 @@ abstract class AbstractAction extends Action
     {
         try {
             $token = '';
-            $auth_header = $this->_request_api->getHeader('Authorization');
+            $auth_header = $this->_request_api->getHeader('Authorized');
             if( null !== $auth_header && is_string( $auth_header ) ) {
                 $token = count( explode( ' ', $auth_header ) ) > 1 ? explode( ' ', $auth_header )[1] : $token;
             }
