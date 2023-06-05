@@ -2,6 +2,7 @@
 
 namespace Clerk\Clerk\Controller\Product;
 
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Adapter\Product as ProductAdapter;
 use Clerk\Clerk\Controller\AbstractAction;
 use Clerk\Clerk\Model\Adapter\Product;
@@ -55,6 +56,7 @@ class Index extends AbstractAction
      * @param Product $productAdapter
      * @param ProductMetadataInterface $product_metadata
      * @param RequestApi $request_api
+     * @param Api $api
      */
     public function __construct(
         Context $context,
@@ -66,7 +68,8 @@ class Index extends AbstractAction
         Data $taxHelper,
         ModuleList $moduleList,
         ProductMetadataInterface $product_metadata,
-        RequestApi $request_api
+        RequestApi $request_api,
+        Api $api
     ) {
         $this->taxHelper = $taxHelper;
         $this->moduleList = $moduleList;
@@ -80,7 +83,8 @@ class Index extends AbstractAction
             $moduleList, 
             $clerk_logger,
             $product_metadata,
-            $request_api
+            $request_api,
+            $api
         );
     }
 

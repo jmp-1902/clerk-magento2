@@ -2,6 +2,7 @@
 
 namespace Clerk\Clerk\Controller\Rotatekey;
 
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Controller\AbstractAction;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
@@ -63,6 +64,8 @@ class Index extends AbstractAction
      * @param ProductMetadataInterface $product_metadata
      * @param CacheType $cacheType
      * @param RequestApi $request_api
+     * @param Api $api
+     * 
      */
     public function __construct(
         Context $context,
@@ -74,7 +77,8 @@ class Index extends AbstractAction
         WriterInterface $configWriter,
         ProductMetadataInterface $product_metadata,
         CacheType $cacheType,
-        RequestApi $request_api
+        RequestApi $request_api,
+        Api $api
     ) {
         $this->clerk_logger = $clerk_logger;
         $this->config_writer = $configWriter;
@@ -87,7 +91,8 @@ class Index extends AbstractAction
             $moduleList, 
             $clerk_logger,
             $product_metadata,
-            $request_api
+            $request_api,
+            $api
         );
     }
 
