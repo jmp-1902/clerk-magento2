@@ -150,19 +150,21 @@ class Product extends AbstractAdapter
 
             }
 
-            $visibility = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_VISIBILITY, $scope, $scopeid);
+            // $visibility = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_VISIBILITY, $scope, $scopeid);
 
-            switch ($visibility) {
-                case Visibility::VISIBILITY_IN_CATALOG:
-                    $collection->setVisibility([Visibility::VISIBILITY_IN_CATALOG]);
-                    break;
-                case Visibility::VISIBILITY_IN_SEARCH:
-                    $collection->setVisibility([Visibility::VISIBILITY_IN_SEARCH]);
-                    break;
-                case Visibility::VISIBILITY_BOTH:
-                    $collection->setVisibility([Visibility::VISIBILITY_BOTH]);
-                    break;
-            }
+            // switch ($visibility) {
+            //     case Visibility::VISIBILITY_IN_CATALOG:
+            //         $collection->setVisibility([Visibility::VISIBILITY_IN_CATALOG]);
+            //         break;
+            //     case Visibility::VISIBILITY_IN_SEARCH:
+            //         $collection->setVisibility([Visibility::VISIBILITY_IN_SEARCH]);
+            //         break;
+            //     case Visibility::VISIBILITY_BOTH:
+            //         $collection->setVisibility([Visibility::VISIBILITY_BOTH]);
+            //         break;
+            // }
+
+            $collection->addAttributeToFilter('visibility', ['in' => [Visibility::VISIBILITY_IN_CATALOG, Visibility::VISIBILITY_IN_SEARCH, Visibility::VISIBILITY_BOTH]]);
 
             $collection->setPageSize($limit)->setCurPage($page)->addOrder($orderBy, $order);
 
@@ -367,7 +369,7 @@ class Product extends AbstractAdapter
                     return $imageUrl;
                 }
 
-                
+
             });
 
             //Add url fieldhandler
