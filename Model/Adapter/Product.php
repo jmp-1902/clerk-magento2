@@ -250,12 +250,13 @@ class Product extends AbstractAdapter
                             $parentInstance = $item->getTypeInstance();
                             $childProducts = $parentInstance->getUsedProducts($item);
                             foreach ($childProducts as $child) {
-                                $childPrices[] = (is_numeric($child->getFinalPrice()) && $child->getFinalPrice() > 0)  ? $child->getFinalPrice() : 0;
+
+                                $childPrices[] = (is_numeric($child->getFinalPrice()) && $child->getFinalPrice() > 0)  ? $this->taxHelper->getTaxPrice($child, $child->getFinalPrice(), true) : 0;
                             }
                             if(!empty($childPrices)) {
-                                $price = min($childPrices) > 0 ? min($childPrices) : $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue();
+                                $price = min($childPrices) > 0 ? min($childPrices) :  $this->taxHelper->getTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue(), true);
                             } else {
-                                $price = $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue();
+                                $price = $this->taxHelper->getTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue(), true);
                             }
                             break;
                         case Grouped::TYPE_CODE:
