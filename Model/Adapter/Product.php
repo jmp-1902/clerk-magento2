@@ -621,9 +621,12 @@ class Product extends AbstractAdapter
       $stockQuantity = 0;
       if(!empty($stockInfo)){
         foreach($stockInfo as $i => $stockEntity){
-          $stockQuantity += $stockEntity['qty'];
+          if(array_key_exists('qty', $stockEntity)){
+            $stockQuantity += $stockEntity['qty'];
+          }
         }
       }
+      return $stockQuantity;
     }
 
     /**
