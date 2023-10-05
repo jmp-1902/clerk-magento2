@@ -617,7 +617,13 @@ class Product extends AbstractAdapter
     }
 
     protected function getSaleableStockbySku($sku){
-      return $this->getSalableQuantityDataBySku->execute($sku);
+      $stockInfo = $this->getSalableQuantityDataBySku->execute($sku);
+      $stockQuantity = 0;
+      if(!empty($stockInfo)){
+        foreach($stockInfo as $i => $stockEntity){
+          $stockQuantity += $stockEntity['qty'];
+        }
+      }
     }
 
     /**
