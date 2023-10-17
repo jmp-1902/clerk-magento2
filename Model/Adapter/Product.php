@@ -312,7 +312,7 @@ class Product extends AbstractAdapter
           }
 
           if($productType == self::PRODUCT_TYPE_BUNDLE){
-            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getMinimalPrice()->getValue(), true) );
+            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue(), true) );
           }
           if($productType == self::PRODUCT_TYPE_CONFIGURABLE){
             $childPrices = array();
@@ -365,7 +365,7 @@ class Product extends AbstractAdapter
           }
 
           if($productType == self::PRODUCT_TYPE_BUNDLE){
-            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getMinimalPrice()->getValue(), false) );
+            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('final_price')->getAmount()->getValue(), false) );
           }
           if($productType == self::PRODUCT_TYPE_CONFIGURABLE){
             $childPrices = array();
@@ -417,7 +417,7 @@ class Product extends AbstractAdapter
           }
 
           if($productType == self::PRODUCT_TYPE_BUNDLE){
-            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('regular_price')->getMinimalPrice()->getValue(), true) );
+            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('regular_price')->getAmount()->getValue(), true) );
           }
           if($productType == self::PRODUCT_TYPE_CONFIGURABLE){
             $childPrices = array();
@@ -468,7 +468,7 @@ class Product extends AbstractAdapter
           }
 
           if($productType == self::PRODUCT_TYPE_BUNDLE){
-            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('regular_price')->getMinimalPrice()->getValue(), false) );
+            return $this->formatPrice( $this->getProductTaxPrice($item, $item->getPriceInfo()->getPrice('regular_price')->getAmount()->getValue(), false) );
           }
           if($productType == self::PRODUCT_TYPE_CONFIGURABLE){
             $childPrices = array();
