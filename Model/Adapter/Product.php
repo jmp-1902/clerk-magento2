@@ -14,11 +14,12 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\CatalogInventory\Api\StockStateInterface;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\RequestInterface;
-use Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku;
 use Magento\CatalogInventory\Helper\Stock as StockFilter;
-use Magento\Inventory\Model\SourceItem\Command\GetSourceItemsBySku as ItemSource;
 use Magento\Tax\Model\Calculation\Rate as TaxRate;
 use Magento\Catalog\Api\ProductRepositoryInterface;
+
+use Magento\Framework\Module\Manager;
+use Magento\Framework\ObjectManagerInterface;
 
 class Product extends AbstractAdapter
 {
@@ -33,6 +34,18 @@ class Product extends AbstractAdapter
     self::PRODUCT_TYPE_GROUPED,
     self::PRODUCT_TYPE_BUNDLE
   ];
+
+
+  /**
+   * @var Manager;
+   */
+  protected $moduleManager;
+
+
+  /**
+   * @var ObjectManagerInterface;
+   */
+  protected $objectManager;
 
 
   /**
@@ -53,19 +66,20 @@ class Product extends AbstractAdapter
   protected $productTaxRates;
 
   /**
-   * @var ItemSource
+   * @var ItemSource|null
    */
   protected $itemSource;
+
+  /**
+   * @var GetSalableQuantityDataBySku|null
+   */
+  protected $getSalableQuantityDataBySku;
 
   /**
    * @var StockFilter
    */
   protected $stockFilter;
 
-  /**
-   * @var GetSalableQuantityDataBySku
-   */
-  protected $getSalableQuantityDataBySku;
 
   /**
    * @var LoggerInterface
@@ -131,9 +145,10 @@ class Product extends AbstractAdapter
    * @param \Magento\CatalogInventory\Api\StockStateInterface $stockStateInterface
    * @param \Magento\Framework\App\ProductMetadataInterface $productMetadataInterface
    * @param \Magento\Framework\App\RequestInterface $requestInterface
-   * @param \Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku $getSalableQuantityDataBySku
    * @param \Magento\Tax\Model\Calculation\Rate $taxRate
    * @param \Magento\Catalog\Api\ProductRepositoryInterface $productRepository
+   * @param \Magento\Framework\Module\Manager $moduleManager
+   * @param \Magento\Framework\ObjectManagerInterface $objectManager
    */
   public function __construct(
     ScopeConfigInterface $scopeConfig,
@@ -147,10 +162,10 @@ class Product extends AbstractAdapter
     StockStateInterface $stockStateInterface,
     ProductMetadataInterface $productMetadataInterface,
     RequestInterface $requestInterface,
-    GetSalableQuantityDataBySku $getSalableQuantityDataBySku,
-    ItemSource $itemSource,
     TaxRate $taxRate,
-    ProductRepositoryInterface $productRepository
+    ProductRepositoryInterface $productRepository,
+    Manager $moduleManager,
+    ObjectManagerInterface $objectManager
   ) {
     $this->taxHelper = $taxHelper;
     $this->stockFilter = $stockFilter;
@@ -160,11 +175,21 @@ class Product extends AbstractAdapter
     $this->stockStateInterface = $stockStateInterface;
     $this->productMetadataInterface = $productMetadataInterface;
     $this->requestInterface = $requestInterface;
-    $this->getSalableQuantityDataBySku = $getSalableQuantityDataBySku;
-    $this->itemSource = $itemSource;
     $this->taxRate = $taxRate;
     $this->productTaxRates = $this->taxRate->getCollection()->getData();
     $this->_productRepository = $productRepository;
+
+    $this->moduleManager = $moduleManager;
+    $this->objectManager = $objectManager;
+
+    if($this->moduleManager->isEnabled('Magento_InventoryAdminUi') && $this->moduleManager->isEnabled('Magento_Inventory')){ {
+      $this->itemSource = $this->objectManager->get(\Magento\Inventory\Model\SourceItem\Command\GetSourceItemsBySku);
+      $this->getSalableQuantityDataBySku = $this->objectManager->get(\Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku);
+    } else {
+      $this->itemSource = null;
+      $this->getSalableQuantityDataBySku = null;
+    }
+
     parent::__construct(
       $scopeConfig,
       $eventManager,
@@ -676,7 +701,7 @@ class Product extends AbstractAdapter
         if($productType == self::PRODUCT_TYPE_SIMPLE || !in_array($productType, self::PRODUCT_TYPES)){
           $productStock = $this->getProductStockStateQty($item);
           // If stock was 0, try to get it without looking at the scope.
-          if($productStock == 0){
+          if($productStock == 0 && $this->getSalableQuantityDataBySku !== null){
             $productStock = $this->getSaleableStockBySku($item->getSku());
           }
         }
@@ -685,7 +710,7 @@ class Product extends AbstractAdapter
           foreach($usedProducts as $usedProduct){
             $productStock += $this->getProductStockStateQty($usedProduct);
           }
-          if($productStock == 0){
+          if($productStock == 0 && $this->getSalableQuantityDataBySku !== null){
             foreach ($usedProducts as $usedProduct) {
               $productStock += $this->getSaleableStockBySku($usedProduct->getSku());
             }
@@ -696,7 +721,7 @@ class Product extends AbstractAdapter
           foreach($associatedProducts as $associatedProduct){
             $productStock += $this->getProductStockStateQty($associatedProduct);
           }
-          if($productStock == 0){
+          if($productStock == 0 && $this->getSalableQuantityDataBySku !== null){
             foreach($associatedProducts as $associatedProduct){
               $productStock += $this->getSaleableStockBySku($associatedProduct->getSku());
             }
@@ -737,6 +762,10 @@ class Product extends AbstractAdapter
         $productType = $item->getTypeID();
         $productTypeInstance = $item->getTypeInstance();
         $productStock = 0;
+
+        if($this->itemSource === null){
+          return $productStock;
+        }
 
         if( $productType == self::PRODUCT_TYPE_SIMPLE || !in_array($productType, self::PRODUCT_TYPES) ){
           $productStock = $this->getSourceStockBySku($item->getSku());
