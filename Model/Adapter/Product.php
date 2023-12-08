@@ -181,13 +181,12 @@ class Product extends AbstractAdapter
 
     $this->moduleManager = $moduleManager;
     $this->objectManager = $objectManager;
+    $this->itemSource = null;
+    $this->getSalableQuantityDataBySku = null;
 
     if($this->moduleManager->isEnabled('Magento_InventoryAdminUi') && $this->moduleManager->isEnabled('Magento_Inventory')){ {
       $this->itemSource = $this->objectManager->get(\Magento\Inventory\Model\SourceItem\Command\GetSourceItemsBySku);
       $this->getSalableQuantityDataBySku = $this->objectManager->get(\Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku);
-    } else {
-      $this->itemSource = null;
-      $this->getSalableQuantityDataBySku = null;
     }
 
     parent::__construct(
