@@ -14,11 +14,13 @@ use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\CatalogInventory\Api\StockStateInterface;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\RequestInterface;
-use Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku;
 use Magento\CatalogInventory\Helper\Stock as StockFilter;
-use Magento\Inventory\Model\SourceItem\Command\GetSourceItemsBySku as ItemSource;
 use Magento\Tax\Model\Calculation\Rate as TaxRate;
 use Magento\Catalog\Api\ProductRepositoryInterface;
+
+// MULTI SOURCE STOCK CLASSES
+use Magento\InventorySalesAdminUi\Model\GetSalableQuantityDataBySku;
+use Magento\Inventory\Model\SourceItem\Command\GetSourceItemsBySku as ItemSource;
 
 class Product extends AbstractAdapter
 {
