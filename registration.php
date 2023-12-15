@@ -1,6 +1,7 @@
 <?php
-\Magento\Framework\Component\ComponentRegistrar::register(
-    \Magento\Framework\Component\ComponentRegistrar::MODULE,
+use Magento\Framework\Component\ComponentRegistrar;
+ComponentRegistrar::register(
+    ComponentRegistrar::MODULE,
     'Clerk_Clerk',
     __DIR__
 );

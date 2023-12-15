@@ -2,87 +2,86 @@
 
 namespace Clerk\Clerk\Observer;
 
+use Clerk\Clerk\Model\Adapter\Product as ProductAdapter;
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Catalog\Model\Product;
+use Magento\Catalog\Model\Product as ProductModel;
+use Magento\ConfigurableProduct\Model\ResourceModel\Product\Type\Configurable as ProductModelConfigurable;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Store\Model\App\Emulation;
-use Magento\Store\Model\StoreManagerInterface;
-use Clerk\Clerk\Model\Adapter\Product as ProductAdapter;
-use Psr\Log\LoggerInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Catalog\Api\ProductRepositoryInterface;
-
-use Magento\ConfigurableProduct\Model\ResourceModel\Product\Type\Configurable as ProductModelConfigurable;
 use Magento\GroupedProduct\Model\Product\Type\Grouped as ProductModelGrouped;
-use Magento\Catalog\Model\Product as ProductModel;
+use Magento\Store\Model\App\Emulation;
+use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class ProductSaveAfterObserver implements ObserverInterface
 {
     /**
      * @var ProductModel
      */
-    protected $_productModel;
+    protected ProductModel $_productModel;
 
     /**
      * @var ProductModelGrouped
      */
-    protected $_productModelGrouped;
+    protected ProductModelGrouped $_productModelGrouped;
 
     /**
      * @var ProductModelConfigurable
      */
-    protected $_productModelConfigurable;
+    protected ProductModelConfigurable $_productModelConfigurable;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var RequestInterface
      */
-    protected $request;
+    protected RequestInterface $request;
 
     /**
      * @var ManagerInterface
      */
-    protected $eventManager;
+    protected ManagerInterface $eventManager;
 
     /**
      * @var Emulation
      */
-    protected $emulation;
+    protected Emulation $emulation;
 
     /**
      * @var StoreManagerInterface
      */
-    protected $storeManager;
+    protected StoreManagerInterface $storeManager;
 
     /**
      * @var Api
      */
-    protected $api;
+    protected Api $api;
 
     /**
      * @var ProductAdapter
      */
-    protected $productAdapter;
+    protected ProductAdapter $productAdapter;
 
     /**
      * @var ProductRepositoryInterface
      */
-    protected $productRepository;
+    protected ProductRepositoryInterface $productRepository;
 
     /**
      * @var LoggerInterface
      */
-    protected $logger;
+    protected LoggerInterface $logger;
 
     /**
      * ProductSaveAfterObserver constructor.
@@ -96,6 +95,8 @@ class ProductSaveAfterObserver implements ObserverInterface
      * @param ProductModelConfigurable $productModelConfigurable
      * @param ProductModelGrouped $productModelGrouped
      * @param ProductModel $productModel
+     * @param ProductRepositoryInterface $productRepository
+     * @param LoggerInterface $logger
      */
     public function __construct(
         ScopeConfigInterface $scopeConfig,
@@ -130,6 +131,7 @@ class ProductSaveAfterObserver implements ObserverInterface
      *
      * @param Observer $observer
      * @return void
+     * @throws NoSuchEntityException
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
@@ -146,7 +148,7 @@ class ProductSaveAfterObserver implements ObserverInterface
             $productstoreIds = $product->getStoreIds();
             foreach ($productstoreIds as $productstoreId) {
                 $product = $this->productRepository->getById($product->getId(), false, $productstoreId);
-                if ($this->storeManager->getStore($productstoreId)->isActive() == true) {
+                if ($this->storeManager->getStore($productstoreId)->isActive()) {
                     try {
                         $this->updateStore($product, $productstoreId);
                     } catch (NoSuchEntityException $e) {

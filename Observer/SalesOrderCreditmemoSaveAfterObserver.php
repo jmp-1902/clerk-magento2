@@ -15,17 +15,17 @@ class SalesOrderCreditmemoSaveAfterObserver implements ObserverInterface
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var Api
      */
-    protected $api;
+    protected Api $api;
 
-     /**
-      * @var OrderRepositoryInterface
-      */
-    protected $orderRepository;
+    /**
+     * @var OrderRepositoryInterface
+     */
+    protected OrderRepositoryInterface $orderRepository;
 
     public function __construct(ScopeConfigInterface $scopeConfig, Api $api, OrderRepositoryInterface $orderRepository)
     {
@@ -40,7 +40,7 @@ class SalesOrderCreditmemoSaveAfterObserver implements ObserverInterface
      * @param Observer $observer
      * @return void
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(\Magento\Framework\Event\Observer $observer): void
     {
         if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ENABLE_ORDER_RETURN_SYNCHRONIZATION, ScopeInterface::SCOPE_STORE)) {
 
@@ -54,7 +54,7 @@ class SalesOrderCreditmemoSaveAfterObserver implements ObserverInterface
                 $product_id = $item->getProductId();
                 $quantity = $item->getQty();
 
-                if ($product_id && $orderIncrementId && $quantity !=0) {
+                if ($product_id && $orderIncrementId && $quantity != 0) {
                     $this->api->returnProduct($orderIncrementId, $product_id, $quantity);
                 }
 

@@ -3,6 +3,7 @@
 namespace Clerk\Clerk\Block\System\Config\Form\Field;
 
 use Magento\Backend\Block\Template\Context;
+use Magento\Framework\Data\Form\Element\AbstractElement;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Framework\Module\ModuleListInterface;
 
@@ -11,12 +12,12 @@ class Version extends \Magento\Config\Block\System\Config\Form\Field
     /**
      * @var ModuleListInterface
      */
-    protected $moduleList;
+    protected ModuleListInterface $moduleList;
 
     /**
      * @var ManagerInterface
      */
-    protected $messageManager;
+    protected ManagerInterface $messageManager;
 
 
     /**
@@ -41,10 +42,10 @@ class Version extends \Magento\Config\Block\System\Config\Form\Field
     /**
      * Render form field
      *
-     * @param \Magento\Framework\Data\Form\Element\AbstractElement $element
+     * @param AbstractElement $element
      * @return string
      */
-    public function render(\Magento\Framework\Data\Form\Element\AbstractElement $element)
+    public function render(AbstractElement $element): string
     {
         //Hide scope label and inheritance checkbox
         $element->setCanUseWebsiteValue(false);
@@ -58,26 +59,11 @@ class Version extends \Magento\Config\Block\System\Config\Form\Field
     /**
      * Get installed version
      *
-     * @param \Magento\Framework\Data\Form\Element\AbstractElement $element
+     * @param AbstractElement $element
      * @return string
      */
-    protected function _getElementHtml(\Magento\Framework\Data\Form\Element\AbstractElement $element)
+    protected function _getElementHtml(AbstractElement $element): string
     {
-        $modules = $this->moduleList->getAll();
-
-        // $modules_for_warning = [
-        //     'Clerk_Clerk' => ['message' => 'This module can interfere with how we inject our instant search.', 'link' => 'https://clerk.io']
-        // ];
-
-        // foreach ($modules as $name => $module) {
-
-        //     if (array_key_exists($name, $modules_for_warning)) {
-
-        //         $this->messageManager->addWarning(__('<strong style="color:#eb5e00">Warning: </strong>'.$name.' is installed. '.$modules_for_warning[$name]['message'].'.<a target="_blank" href="'.$modules_for_warning[$name]['link'].'"> Read more here</a>'));
-
-        //     }
-        // }
-
         //Get installed module version
         $moduleInfo = $this->moduleList->getOne('Clerk_Clerk');
 
