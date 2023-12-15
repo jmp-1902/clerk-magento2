@@ -14,7 +14,7 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var Session

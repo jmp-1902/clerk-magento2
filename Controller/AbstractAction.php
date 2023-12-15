@@ -7,6 +7,7 @@ use Clerk\Clerk\Model\Config;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ResponseInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Module\ModuleList;
@@ -170,7 +171,7 @@ abstract class AbstractAction extends Action
      * Dispatch request
      *
      * @param RequestInterface $request
-     * @return \Magento\Framework\App\ResponseInterface
+     * @return ResponseInterface
      * @throws \Magento\Framework\Exception\NotFoundException
      */
     public function dispatch(RequestInterface $request)

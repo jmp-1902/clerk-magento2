@@ -1,5 +1,6 @@
 .idea/
-composer.phar
 vendor/
+composer.lock
+composer.phar
 qodana.yaml
 .phpactor.json
