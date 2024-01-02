@@ -3,6 +3,7 @@
 namespace Clerk\Clerk\Model;
 
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Psr\Log\LoggerInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
 use Magento\Store\Model\ScopeInterface;
@@ -464,6 +465,30 @@ class Api
         }
 
         return ['limit'];
+    }
+
+    /**
+     * @throws FileSystemException
+     */
+    public function returnProduct(string $orderIncrementId, $productId, $quantity, $storeId): void
+    {
+
+        try {
+
+            $params = [
+                'product' => $productId,
+                'order' => $orderIncrementId,
+                'quantity' => $quantity
+            ];
+
+            $this->get('log/returned', $params, $storeId);
+            $this->clerk_logger->log('Returned Product from Order', ['response' => $params]);
+
+        } catch (\Exception $e) {
+
+            $this->clerk_logger->error('Returning Product Error', ['error' => $e->getMessage()]);
+
+        }
     }
 
 }

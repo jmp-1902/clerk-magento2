@@ -2,39 +2,39 @@
 
 namespace Clerk\Clerk\Observer;
 
+use Clerk\Clerk\Helper\Context;
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Framework\App\RequestInterface;
 
 class ProductDeleteAfterDoneObserver implements ObserverInterface
 {
     /**
-	 * @var RequestInterface
-	 */
-	protected $request;
-    /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var Api
      */
-    protected $api;
+    protected Api $api;
+    /**
+     * @var Context
+     */
+    protected Context $context;
 
     public function __construct(
         ScopeConfigInterface $scopeConfig,
         Api $api,
-        RequestInterface $request
+        Context $context
         )
     {
         $this->scopeConfig = $scopeConfig;
         $this->api = $api;
-        $this->request = $request;
+        $this->context = $context;
     }
 
     /**
@@ -42,29 +42,36 @@ class ProductDeleteAfterDoneObserver implements ObserverInterface
      *
      * @param Observer $observer
      * @return void
+     * @throws Exception
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(Observer $observer): void
     {
-        $_params = $this->request->getParams();
-        $scope_id = 0;
-        $scope = 'default';
-        if (array_key_exists('store', $_params)){
-            $scope = 'store';
-            $scope_id = $_params[$scope];
+        $event = $observer->getEvent();
+        if(!method_exists($event, 'getProduct')){
+            return;
         }
-        $product = $observer->getEvent()->getProduct();
-        if($product && $product->getId()){
-            if($scope_id == 0){
-                $store_ids_prod = $product->getStoreIds();
-                foreach ($store_ids_prod as $store_id) {
-                    if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_REAL_TIME_ENABLED, 'store', $store_id)) {
-                        $this->api->removeProduct($product->getId(), $scope_id);
-                    }
-                }
-            } else {
-                if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_REAL_TIME_ENABLED, $scope, $scope_id)) {
-                    $this->api->removeProduct($product->getId(), $scope_id);
-                }
+
+        $scopeInfo = $this->context->getScope();
+
+        $product = $event->getProduct();
+        if(!$product){
+            return;
+        }
+        if(!$product->getId()){
+            return;
+        }
+
+        if(0 !== $scopeInfo['scope_id']){
+            if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_REAL_TIME_ENABLED, $scopeInfo['scope'], $scopeInfo['scope_id'])) {
+                $this->api->removeProduct($product->getId(), $scopeInfo['scope_id']);
+            }
+            return;
+        }
+
+        $productStoreIds = $product->getStoreIds();
+        foreach ($productStoreIds as $storeId){
+            if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_REAL_TIME_ENABLED, 'store', $storeId)) {
+                $this->api->removeProduct($product->getId(), $storeId);
             }
         }
     }

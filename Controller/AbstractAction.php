@@ -4,132 +4,137 @@ namespace Clerk\Clerk\Controller;
 
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
-use Magento\Framework\App\Action\Action;
+use Exception;
+use Magento\Framework\App\ActionInterface;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Data\Collection;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Exception\NotFoundException;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Module\ModuleList;
 use Magento\Store\Model\ScopeInterface;
-use Magento\Store\Model\Store;
 use Psr\Log\LoggerInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
-use Magento\Store\Api\StoreRepositoryInterface;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Framework\App\ProductMetadataInterface;
 
-abstract class AbstractAction extends Action
+abstract class AbstractAction implements ActionInterface
 {
     /**
      * @var Api
      */
-    protected $_api;
+    protected Api $_api;
 
     /**
      * @var RequestApi
      */
-    protected $_request_api;
+    protected RequestApi $_request_api;
 
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
-
-    /**
-     * @var
-     */
-    protected $configWriter;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var bool
      */
-    protected $debug;
+    protected bool $debug;
 
     /**
      * @var array
      */
-    protected $fields;
+    protected array $fields;
 
     /**
      * @var array
      */
-    protected $fieldHandlers = [];
+    protected array $fieldHandlers = [];
 
     /**
      * @var int
      */
-    protected $limit;
+    protected int $limit;
 
     /**
      * @var int
      */
-    protected $page;
+    protected int $page;
 
     /**
-     * @var
+     * @var int
      */
-    protected $start_date;
+    protected int $start_date;
 
     /**
-     * @var
+     * @var int
      */
-    protected $end_date;
-
-    /**
-     * @var string
-     */
-    protected $orderBy;
+    protected int $end_date;
 
     /**
      * @var string
      */
-    protected $order;
+    protected string $orderBy;
+
+    /**
+     * @var string
+     */
+    protected string $order;
 
     /**
      * @var array
      */
-    protected $fieldMap = [];
+    protected array $fieldMap = [];
 
     /**
      * @var mixed
      */
-    protected $collectionFactory;
+    protected mixed $collectionFactory;
 
     /**
      * @var LoggerInterface
      */
-    protected $logger;
+    protected LoggerInterface $logger;
 
     /**
      * @var string
      */
-    protected $eventPrefix = '';
+    protected string $eventPrefix = '';
 
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * @var StoreManagerInterface
      */
-    protected $_storeManager;
+    protected StoreManagerInterface $_storeManager;
 
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $_product_metadata;
 
-    private $privateKey;
-    private $publicKey;
-    protected $scopeid;
-    protected $scope;
+    /**
+     * @var string|null
+     */
+    private ?string $publicKey;
+    /**
+     * @var string|null
+     */
+    protected ?string $scopeid;
+    /**
+     * @var string|null
+     */
+    protected ?string $scope;
 
     /**
      * AbstractAction constructor.
@@ -144,16 +149,17 @@ abstract class AbstractAction extends Action
      * @param Api $api
      */
     public function __construct(
-        Context $context,
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface $scopeConfig,
-        LoggerInterface $logger,
-        ModuleList $moduleList,
-        ClerkLogger $clerk_logger,
+        Context                  $context,
+        StoreManagerInterface    $storeManager,
+        ScopeConfigInterface     $scopeConfig,
+        LoggerInterface          $logger,
+        ModuleList               $moduleList,
+        ClerkLogger              $clerk_logger,
         ProductMetadataInterface $product_metadata,
-        RequestApi $request_api,
-        Api $api
-    ) {
+        RequestApi               $request_api,
+        Api                      $api
+    )
+    {
         $this->moduleList = $moduleList;
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
@@ -166,13 +172,12 @@ abstract class AbstractAction extends Action
     }
 
 
-
     /**
      * Dispatch request
      *
      * @param RequestInterface $request
      * @return ResponseInterface
-     * @throws \Magento\Framework\Exception\NotFoundException
+     * @throws NotFoundException|FileSystemException
      */
     public function dispatch(RequestInterface $request)
     {
@@ -186,9 +191,9 @@ abstract class AbstractAction extends Action
             $headerToken = $this->getHeaderToken();
 
             // check Header Token
-            $authorized = (bool) $this->validateJwt($headerToken);
+            $authorized = (bool)$this->validateJwt($headerToken);
             // Check API Key Identification at least one scope
-            $identified = (bool) ($this->verifyKeys() !== -1 || $this->verifyWebsiteKeys() !== -1 || $this->verifyDefaultKeys() !== -1);
+            $identified = (bool)($this->verifyKeys() !== -1 || $this->verifyWebsiteKeys() !== -1 || $this->verifyDefaultKeys() !== -1);
 
             if (!$identified || !$authorized) {
                 $this->_actionFlag->set('', self::FLAG_NO_DISPATCH, true);
@@ -206,6 +211,7 @@ abstract class AbstractAction extends Action
                         ])
                     );
 
+                /** @noinspection PhpDeprecationInspection */
                 $this->clerk_logger->warn('Invalid keys supplied', ['response' => parent::dispatch($request)]);
 
                 return parent::dispatch($request);
@@ -234,7 +240,7 @@ abstract class AbstractAction extends Action
             $this->getArguments($request);
             return parent::dispatch($request);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Validating API Keys ERROR', ['error' => $e->getMessage()]);
 
@@ -259,7 +265,7 @@ abstract class AbstractAction extends Action
 
             return -1;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
 
@@ -286,7 +292,7 @@ abstract class AbstractAction extends Action
 
             return -1;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
 
@@ -313,7 +319,7 @@ abstract class AbstractAction extends Action
 
             return -1;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
 
@@ -336,7 +342,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
 
@@ -358,7 +364,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
 
@@ -381,7 +387,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
 
@@ -403,7 +409,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
 
@@ -425,7 +431,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
 
@@ -455,7 +461,7 @@ abstract class AbstractAction extends Action
             $token = $auth_header_array[1];
             return $token;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->logger->error('getHeaderToken ERROR', ['error' => $e->getMessage()]);
 
@@ -477,7 +483,7 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
 
@@ -515,7 +521,7 @@ abstract class AbstractAction extends Action
     {
         try {
 
-            $this->debug = (bool) $request->getParam('debug', false);
+            $this->debug = (bool)$request->getParam('debug', false);
             $startDate = strtotime('today - 200 years');
             $startDateParam = $request->getParam('start_date');
             if (!empty($startDateParam)) {
@@ -536,20 +542,20 @@ abstract class AbstractAction extends Action
             }
             $this->start_date = date('Y-m-d', $startDate);
             $this->end_date = date('Y-m-d', $endDate);
-            $this->limit = (int) $request->getParam('limit', 0);
-            $this->page = (int) $request->getParam('page', 0);
+            $this->limit = (int)$request->getParam('limit', 0);
+            $this->page = (int)$request->getParam('page', 0);
             $this->orderBy = $request->getParam('orderby', 'entity_id');
             $this->order = $request->getParam('order', 'asc');
-            $this->limit = (int) $request->getParam('limit', 0);
-            $this->page = (int) $request->getParam('page', 0);
+            $this->limit = (int)$request->getParam('limit', 0);
+            $this->page = (int)$request->getParam('page', 0);
             $this->orderBy = $request->getParam('orderby', 'entity_id');
             $this->scope = $request->getParam('scope');
             $this->scopeid = $request->getParam('scope_id');
 
             if ($request->getParam('order') === 'desc') {
-                $this->order = \Magento\Framework\Data\Collection::SORT_ORDER_DESC;
+                $this->order = Collection::SORT_ORDER_DESC;
             } else {
-                $this->order = \Magento\Framework\Data\Collection::SORT_ORDER_ASC;
+                $this->order = Collection::SORT_ORDER_ASC;
             }
 
             /**
@@ -569,7 +575,7 @@ abstract class AbstractAction extends Action
 
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getArguments ERROR', ['error' => $e->getMessage()]);
 
@@ -635,7 +641,7 @@ abstract class AbstractAction extends Action
                 $this->clerk_logger->log('Fetched page ' . $this->page . ' with ' . count($response) . ' Orders', ['response' => $response]);
                 $this->getResponse()->setBody(json_encode($response));
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->getResponse()
                 ->setHttpResponseCode(500)
                 ->setHeader('Content-Type', 'application/json', true)
@@ -682,7 +688,7 @@ abstract class AbstractAction extends Action
 
             return $collection;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('prepareCollection ERROR', ['error' => $e->getMessage()]);
 
@@ -706,7 +712,7 @@ abstract class AbstractAction extends Action
 
             return $field;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Field Name ERROR', ['error' => $e->getMessage()]);
 
@@ -768,7 +774,7 @@ abstract class AbstractAction extends Action
 
             return false;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Request Body ERROR', ['error' => $e->getMessage()]);
 
@@ -803,7 +809,7 @@ abstract class AbstractAction extends Action
 
             return false;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger->error('ERROR verify_token', array('error' => $e->getMessage()));
             return false;
         }

@@ -15,9 +15,9 @@ use Magento\Framework\App\ProductMetadataInterface;
 
 class Index extends AbstractAction
 {
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * Version controller constructor.

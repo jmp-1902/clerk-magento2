@@ -20,12 +20,12 @@ class Index extends AbstractAction
     /**
      * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * @var StoreManagerInterface

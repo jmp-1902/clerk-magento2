@@ -4,11 +4,12 @@ namespace Clerk\Clerk\Observer;
 
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use Exception;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Store\Model\ScopeInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
+use Magento\Store\Model\ScopeInterface;
 
 class SalesOrderCreditmemoSaveAfterObserver implements ObserverInterface
 {
@@ -40,25 +41,31 @@ class SalesOrderCreditmemoSaveAfterObserver implements ObserverInterface
      * @param Observer $observer
      * @return void
      */
-    public function execute(\Magento\Framework\Event\Observer $observer): void
+    public function execute(Observer $observer): void
     {
-        if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ENABLE_ORDER_RETURN_SYNCHRONIZATION, ScopeInterface::SCOPE_STORE)) {
-
-            $creditmemo = $observer->getEvent()->getCreditmemo();
-            $order_id = $creditmemo->getOrderId();
-            $order = $this->orderRepository->get($order_id);
+        $trackReturns = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ENABLE_ORDER_RETURN_SYNCHRONIZATION, ScopeInterface::SCOPE_STORE);
+        if (!$trackReturns) {
+            return;
+        }
+        $event = $observer->getEvent();
+        if (!method_exists($event, 'getCreditmemo')) {
+            return;
+        }
+        try {
+            $creditmemo = $event->getCreditmemo();
+            $orderId = $creditmemo->getOrderId();
+            $storeId = $creditmemo->getStoreId();
+            $order = $this->orderRepository->get($orderId);
             $orderIncrementId = $order->getIncrementId();
-
             foreach ($creditmemo->getAllItems() as $item) {
-
-                $product_id = $item->getProductId();
+                $productId = $item->getProductId();
                 $quantity = $item->getQty();
-
-                if ($product_id && $orderIncrementId && $quantity != 0) {
-                    $this->api->returnProduct($orderIncrementId, $product_id, $quantity);
+                if ($productId && $orderIncrementId && $quantity != 0) {
+                    $this->api->returnProduct($orderIncrementId, $productId, $quantity, $storeId);
                 }
-
             }
+        } catch (Exception $e) {
+            return;
         }
     }
 }
