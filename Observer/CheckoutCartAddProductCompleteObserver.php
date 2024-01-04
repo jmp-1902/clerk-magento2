@@ -37,7 +37,7 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
      * @param Observer $observer
      * @return void
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(Observer $observer)
     {
         if ($this->scopeConfig->getValue(Config::XML_PATH_POWERSTEP_TYPE, ScopeInterface::SCOPE_STORE) == Config\Source\PowerstepType::TYPE_POPUP) {
             $product = $observer->getProduct();
@@ -54,6 +54,6 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
      */
 //    private function isClerkSearchEnabled()
 //    {
-//        return $this->scopeConfig->isSetFlag(Config::XML_PATH_SEARCH_ENABLED);
+//        return $this->scopeConfig->isSetFlag(Settings::XML_PATH_SEARCH_ENABLED);
 //    }
 }

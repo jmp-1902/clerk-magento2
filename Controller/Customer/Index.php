@@ -2,21 +2,24 @@
 
 namespace Clerk\Clerk\Controller\Customer;
 
-use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Controller\AbstractAction;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
-use Magento\Framework\App\Action\Context;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
+use Exception;
+use Magento\Customer\Api\CustomerMetadataInterface;
 use Magento\Customer\Model\ResourceModel\Customer\CollectionFactory;
+use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Module\ModuleList;
+use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Newsletter\Model\ResourceModel\Subscriber\CollectionFactory as SubscriberCollectionFactory;
 use Magento\Newsletter\Model\SubscriberFactory as SubscriberFactory;
-use Magento\Framework\Module\ModuleList;
+use Magento\Store\Model\StoreManagerInterface;
 use Psr\Log\LoggerInterface;
-use Magento\Customer\Api\CustomerMetadataInterface;
-use Magento\Framework\Webapi\Rest\Request as RequestApi;
-use Magento\Framework\App\ProductMetadataInterface;
 
 class Index extends AbstractAction
 {
@@ -39,7 +42,7 @@ class Index extends AbstractAction
     /**
      * @var ClerkLogger
      */
-    protected ClerkLogger $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
      * @var CustomerMetadataInterface
@@ -49,7 +52,7 @@ class Index extends AbstractAction
     /**
      * @var ProductMetadataInterface
      */
-    protected ProductMetadataInterface $_product_metadata;
+    protected ProductMetadataInterface $productMetadata;
 
     /**
      * @var string
@@ -67,24 +70,25 @@ class Index extends AbstractAction
      * @param Api $api
      */
     public function __construct(
-        Context $context,
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface $scopeConfig,
-        CollectionFactory $customerCollectionFactory,
-        LoggerInterface $logger,
-        ModuleList $moduleList,
-        ClerkLogger $clerk_logger,
-        CustomerMetadataInterface $customerMetadata,
-        ProductMetadataInterface $product_metadata,
-        RequestApi $request_api,
-        SubscriberFactory $subscriberFactory,
+        Context                     $context,
+        StoreManagerInterface       $storeManager,
+        ScopeConfigInterface        $scopeConfig,
+        CollectionFactory           $customerCollectionFactory,
+        LoggerInterface             $logger,
+        ModuleList                  $moduleList,
+        ClerkLogger                 $clerkLogger,
+        CustomerMetadataInterface   $customerMetadata,
+        ProductMetadataInterface    $product_metadata,
+        RequestApi                  $request_api,
+        SubscriberFactory           $subscriberFactory,
         SubscriberCollectionFactory $subscriberCollectionFactory,
-        Api $api
-    ) {
+        Api                         $api
+    )
+    {
         $this->collectionFactory = $customerCollectionFactory;
-        $this->clerk_logger = $clerk_logger;
+        $this->clerkLogger = $clerkLogger;
         $this->_customerMetadata = $customerMetadata;
-        $this->_storeManager = $storeManager;
+        $this->storeManager = $storeManager;
         $this->_subscriberFactory = $subscriberFactory;
         $this->_subscriberCollectionFactory = $subscriberCollectionFactory;
 
@@ -94,14 +98,14 @@ class Index extends AbstractAction
             $scopeConfig,
             $logger,
             $moduleList,
-            $clerk_logger,
+            $clerkLogger,
             $product_metadata,
             $request_api,
             $api
         );
     }
 
-    public function execute()
+    public function execute(): void
     {
         try {
 
@@ -114,11 +118,11 @@ class Index extends AbstractAction
 
                 if (!empty($this->scopeConfig->getValue(Config::XML_PATH_CUSTOMER_SYNCHRONIZATION_EXTRA_ATTRIBUTES, $this->scope, $this->scopeid))) {
 
-                    $Fields = explode(',', str_replace(' ', '', $this->scopeConfig->getValue(Config::XML_PATH_CUSTOMER_SYNCHRONIZATION_EXTRA_ATTRIBUTES, $this->scope, $this->scopeid)));
+                    $fields = explode(',', str_replace(' ', '', $this->scopeConfig->getValue(Config::XML_PATH_CUSTOMER_SYNCHRONIZATION_EXTRA_ATTRIBUTES, $this->scope, $this->scopeid)));
 
                 } else {
 
-                    $Fields = [];
+                    $fields = [];
 
                 }
 
@@ -130,19 +134,23 @@ class Index extends AbstractAction
 
                     $_customer = array();
                     $_customer['id'] = $customer['entity_id'];
-                    $_customer['name'] = $customer['firstname'] . " " . (!is_null($customer['middlename']) ? $customer['middlename'] . " " : "") . $customer['lastname'];
+                    if (!is_null($customer['middlename'])) {
+                        $_customer['name'] = sprintf("%s %s %s", $customer['firstname'], $customer['middlename'], $customer['lastname']);
+                    } else {
+                        $_customer['name'] = sprintf("%s %s", $customer['firstname'], $customer['lastname']);
+                    }
                     $_customer['email'] = $customer['email'];
 
 
-                    foreach ($Fields as $Field) {
-                        if (isset($customer[$Field])) {
-                            if ($Field == "gender") {
+                    foreach ($fields as $field) {
+                        if (isset($customer[$field])) {
+                            if ($field == "gender") {
 
-                                $_customer[$Field] = $this->getCustomerGender($customer[$Field]);
+                                $_customer[$field] = $this->getCustomerGender($customer[$field]);
 
                             } else {
 
-                                $_customer[$Field] = $customer[$Field];
+                                $_customer[$field] = $customer[$field];
 
                             }
 
@@ -152,7 +160,7 @@ class Index extends AbstractAction
                     if ($this->scopeConfig->getValue(Config::XML_PATH_SUBSCRIBER_SYNCHRONIZATION_ENABLED, $this->scope, $this->scopeid)) {
                         $sub_state = $subscriberInstance->loadByEmail($customer['email']);
                         if ($sub_state->getId()) {
-                            $_customer['subscribed'] = (bool) $sub_state->getSubscriberStatus();
+                            $_customer['subscribed'] = (bool)$sub_state->getSubscriberStatus();
                         } else {
                             $_customer['subscribed'] = false;
                         }
@@ -172,7 +180,7 @@ class Index extends AbstractAction
                             $_sub = array();
                             $_sub['id'] = 'SUB' . $subscriber['subscriber_id'];
                             $_sub['email'] = $subscriber['subscriber_email'];
-                            $_sub['subscribed'] = (bool) $subscriber['subscriber_status'];
+                            $_sub['subscribed'] = (bool)$subscriber['subscriber_status'];
                             $_sub['name'] = "";
                             $_sub['firstname'] = "";
                             $_sub['unsub_url'] = $sub_state->getUnsubscriptionLink();
@@ -196,22 +204,34 @@ class Index extends AbstractAction
 
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Customer execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Customer execute ERROR', ['error' => $e->getMessage()]);
 
         }
     }
 
-    public function getCustomerCollection($page, $limit, $storeid)
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function getCustomerCollection($page, $limit, $store_id)
     {
-        $store = $this->_storeManager->getStore($storeid);
+        $store = $this->storeManager->getStore($store_id);
         $customerCollection = $this->collectionFactory->create();
         $customerCollection->setOrder('title', 'ASC');
         $customerCollection->addFilter('store_id', $store->getId());
         $customerCollection->setPageSize($limit);
         $customerCollection->setCurPage($page);
         return $customerCollection;
+    }
+
+    /**
+     * @throws NoSuchEntityException
+     * @throws LocalizedException
+     */
+    public function getCustomerGender($GenderCode): string
+    {
+        return $this->_customerMetadata->getAttributeMetadata('gender')->getOptions()[$GenderCode]->getLabel();
     }
 
     public function getSubscriberCollection($page, $limit, $storeid)
@@ -222,10 +242,5 @@ class Index extends AbstractAction
         $subscriberCollection->setPageSize($limit);
         $subscriberCollection->setCurPage($page);
         return $subscriberCollection;
-    }
-
-    public function getCustomerGender($GenderCode)
-    {
-        return $this->_customerMetadata->getAttributeMetadata('gender')->getOptions()[$GenderCode]->getLabel();
     }
 }

@@ -2,25 +2,25 @@
 
 namespace Clerk\Clerk\Controller\Getconfig;
 
-use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Controller\AbstractAction;
+use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Clerk\Clerk\Model\Api;
+use Clerk\Clerk\Model\Config;
+use Exception;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\Framework\Module\ModuleList;
-use Psr\Log\LoggerInterface;
-use Clerk\Clerk\Controller\Logger\ClerkLogger;
-use Magento\Store\Model\ScopeInterface;
-use Clerk\Clerk\Model\Config;
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
+use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class Index extends AbstractAction
 {
     /**
      * @var ClerkLogger
      */
-    protected ClerkLogger $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
      * @var ModuleList
@@ -30,7 +30,7 @@ class Index extends AbstractAction
     /**
      * @var StoreManagerInterface
      */
-    protected $storeManager;
+    protected StoreManagerInterface $storeManager;
 
     /**
      * Version controller constructor.
@@ -39,33 +39,36 @@ class Index extends AbstractAction
      * @param ScopeConfigInterface $scopeConfig
      * @param LoggerInterface $logger
      * @param ModuleList $moduleList
-     * @param ProductMetadataInterface $product_metadata
-     * @param RequestApi $request_api
+     * @param StoreManagerInterface $storeManager
+     * @param ClerkLogger $clerkLogger
+     * @param ProductMetadataInterface $productMetadata
+     * @param RequestApi $requestApi
      * @param Api $api
      */
     public function __construct(
-        Context $context,
-        ScopeConfigInterface $scopeConfig,
-        LoggerInterface $logger,
-        ModuleList $moduleList,
-        StoreManagerInterface $storeManager,
-        ClerkLogger $clerk_logger,
-        ProductMetadataInterface $product_metadata,
-        RequestApi $request_api,
-        Api $api
-    ) {
+        Context                  $context,
+        ScopeConfigInterface     $scopeConfig,
+        LoggerInterface          $logger,
+        ModuleList               $moduleList,
+        StoreManagerInterface    $storeManager,
+        ClerkLogger              $clerkLogger,
+        ProductMetadataInterface $productMetadata,
+        RequestApi               $requestApi,
+        Api                      $api
+    )
+    {
         $this->moduleList = $moduleList;
-        $this->clerk_logger = $clerk_logger;
-        $this->store_manager = $storeManager;
+        $this->clerkLogger = $clerkLogger;
+        $this->storeManager = $storeManager;
         parent::__construct(
             $context,
             $storeManager,
             $scopeConfig,
             $logger,
             $moduleList,
-            $clerk_logger,
-            $product_metadata,
-            $request_api,
+            $clerkLogger,
+            $productMetadata,
+            $requestApi,
             $api
         );
     }
@@ -73,7 +76,7 @@ class Index extends AbstractAction
     /**
      * Execute request
      */
-    public function execute()
+    public function execute(): void
     {
         try {
 
@@ -85,12 +88,12 @@ class Index extends AbstractAction
                 $scopeID = $this->getRequest()->getParam('scope_id');
             }
 
+            $storeID = null;
+            $websiteID = null;
             if ($scope == 'store') {
                 $storeID = $scopeID;
-                $websiteID = null;
             } elseif ($scope == 'website') {
                 $websiteID = $scopeID;
-                $storeID = null;
             } elseif ($scope == 'default') {
                 $websiteID = $scopeID;
                 $storeID = $scopeID;
@@ -103,7 +106,7 @@ class Index extends AbstractAction
             $response = [
                 'scopeNAME' => $scope,
                 'storeID' => $storeID,
-                'wepsiteID' => $websiteID,
+                'websiteID' => $websiteID,
                 'LANGUAGE' => $this->scopeConfig->getValue(Config::XML_PATH_LANGUAGE, $scope, $scopeID),
                 'PATH_INCLUDE_PAGES' => $this->scopeConfig->getValue(Config::XML_PATH_INCLUDE_PAGES, $scope, $scopeID),
                 'PAGES_ADDITIONAL_FIELDS' => $this->scopeConfig->getValue(Config::XML_PATH_PAGES_ADDITIONAL_FIELDS, $scope, $scopeID),
@@ -180,9 +183,9 @@ class Index extends AbstractAction
             } else {
                 $this->getResponse()->setBody(json_encode($response));
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Getconfig execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Getconfig execute ERROR', ['error' => $e->getMessage()]);
 
         }
     }

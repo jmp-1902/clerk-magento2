@@ -6,8 +6,10 @@ use Clerk\Clerk\Model\Config;
 use Magento\Catalog\Helper\ImageFactory;
 use Magento\Catalog\Model\Product;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\StoreManagerInterface;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\UrlInterface;
 use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\StoreManagerInterface;
 
 class Image
 {
@@ -36,11 +38,12 @@ class Image
      * @param StoreManagerInterface $storeManager
      */
     public function __construct(
-        ImageFactory $helperFactory,
-        ScopeConfigInterface $scopeConfig,
-        StoreManagerInterface $storeManager,
-        \Magento\Framework\App\RequestInterface $requestInterface
-    ) {
+        ImageFactory                            $helperFactory,
+        ScopeConfigInterface                    $scopeConfig,
+        StoreManagerInterface                   $storeManager,
+        RequestInterface $requestInterface
+    )
+    {
         $this->helperFactory = $helperFactory;
         $this->scopeConfig = $scopeConfig;
         $this->storeManager = $storeManager;
@@ -72,7 +75,7 @@ class Image
 
         if (!$imageUrl) {
             $_params = $this->requestInterface->getParams();
-            if (array_key_exists('scope_id', $_params)){
+            if (array_key_exists('scope_id', $_params)) {
                 $storeId = $_params['scope_id'];
                 $store = $this->storeManager->getStore($storeId);
             } else {
@@ -83,10 +86,25 @@ class Image
             if ($itemImage === 'no_selection' || !$itemImage) {
                 $imageUrl = $helper->getDefaultPlaceholderUrl('small_image');
             } else {
-                $imageUrl = $store->getBaseUrl(\Magento\Framework\UrlInterface::URL_TYPE_MEDIA) . 'catalog/product' . $itemImage;
+                $imageUrl = $store->getBaseUrl(UrlInterface::URL_TYPE_MEDIA) . 'catalog/product' . $itemImage;
             }
         }
 
         return $imageUrl;
+    }
+
+
+    /**
+     * Format Image Path Valid
+     * @param string $imagePath
+     * @return string $imagePath
+     */
+    protected function fixImagePath($imagePath)
+    {
+        if (strpos($imagePath, 'catalog/product/') > -1) {
+            return $imagePath;
+        } else {
+            return str_replace('catalog/product', 'catalog/product/', $imagePath);
+        }
     }
 }

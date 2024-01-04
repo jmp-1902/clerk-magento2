@@ -2,27 +2,28 @@
 
 namespace Clerk\Clerk\Controller\Setconfig;
 
-use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Controller\AbstractAction;
-use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Store\Model\StoreManagerInterface;
-use Magento\Framework\Module\ModuleList;
-use Psr\Log\LoggerInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
-use Magento\Framework\App\Config\Storage\WriterInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Framework\App\ProductMetadataInterface;
+use Exception;
+use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Cache\TypeListInterface as CacheType;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\Config\Storage\WriterInterface;
+use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
+use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class Index extends AbstractAction
 {
     /**
      * @var ClerkLogger
      */
-    protected ClerkLogger $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
      * @var ModuleList
@@ -32,64 +33,69 @@ class Index extends AbstractAction
     /**
      * @var StoreManagerInterface
      */
-    protected $storeManager;
+    protected StoreManagerInterface $storeManager;
 
     /**
      * @var WriterInterface
      */
-    protected $configWriter;
+    protected WriterInterface $configWriter;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $ScopeConfigInterface;
+    protected ScopeConfigInterface $ScopeConfigInterface;
 
     /**
      * @var ProductMetadataInterface
      */
-    protected ProductMetadataInterface $_product_metadata;
+    protected ProductMetadataInterface $productMetadata;
 
     /**
      * @var CacheType
      */
-    protected $_cacheType;
+    protected CacheType $cacheType;
+    private WriterInterface $config_writer;
 
     /**
      * Version controller constructor.
      *
      * @param Context $context
-     * @param ScopeConfigInterface $scopeConfig
+     * @param ScopeConfigInterface $ScopeConfigInterface
      * @param LoggerInterface $logger
      * @param ModuleList $moduleList
-     * @param ProductMetadataInterface $product_metadata
+     * @param StoreManagerInterface $storeManager
+     * @param ClerkLogger $clerkLogger
+     * @param WriterInterface $configWriter
+     * @param ProductMetadataInterface $productMetadata
      * @param CacheType $cacheType
      * @param RequestApi $request_api
      * @param Api $api
      */
     public function __construct(
-        Context $context,
-        ScopeConfigInterface $ScopeConfigInterface,
-        LoggerInterface $logger,
-        ModuleList $moduleList,
-        StoreManagerInterface $storeManager,
-        ClerkLogger $clerk_logger,
-        WriterInterface $configWriter,
-        ProductMetadataInterface $product_metadata,
-        CacheType $cacheType,
-        RequestApi $request_api,
-        Api $api
-    ) {
-        $this->clerk_logger = $clerk_logger;
+        Context                  $context,
+        ScopeConfigInterface     $ScopeConfigInterface,
+        LoggerInterface          $logger,
+        ModuleList               $moduleList,
+        StoreManagerInterface    $storeManager,
+        ClerkLogger              $clerkLogger,
+        WriterInterface          $configWriter,
+        ProductMetadataInterface $productMetadata,
+        CacheType                $cacheType,
+        RequestApi               $request_api,
+        Api                      $api
+    )
+    {
+        $this->clerkLogger = $clerkLogger;
         $this->config_writer = $configWriter;
-        $this->_cacheType = $cacheType;
+        $this->cacheType = $cacheType;
         parent::__construct(
             $context,
             $storeManager,
             $ScopeConfigInterface,
             $logger,
             $moduleList,
-            $clerk_logger,
-            $product_metadata,
+            $clerkLogger,
+            $productMetadata,
             $request_api,
             $api
         );
@@ -97,8 +103,9 @@ class Index extends AbstractAction
 
     /**
      * Execute request
+     * @throws FileSystemException
      */
-    public function execute()
+    public function execute(): void
     {
         try {
 
@@ -108,6 +115,7 @@ class Index extends AbstractAction
                 $scope = $scope . 's';
             }
             $scopeId = intval($this->getRequest()->getParam('scope_id'));
+            $arr_settings = [];
 
             if ($post) {
                 $arr_settings = json_decode($post, true);
@@ -115,7 +123,7 @@ class Index extends AbstractAction
                 $count = 0;
                 foreach ($arr_settings as $key => $value) {
 
-                    // generel
+                    // general
 
                     if ($key == "LANGUAGE") {
                         $this->config_writer->save(Config::XML_PATH_LANGUAGE, $value, $scope, $scopeId);
@@ -179,8 +187,6 @@ class Index extends AbstractAction
                         $this->config_writer->save(Config::XML_PATH_CUSTOMER_SYNCHRONIZATION_EXTRA_ATTRIBUTES, $value, $scope, $scopeId);
                         $count++;
                     }
-
-                    //search
 
                     if ($key == "SEARCH_ENABLED") {
                         $this->config_writer->save(Config::XML_PATH_SEARCH_ENABLED, $value, $scope, $scopeId);
@@ -374,7 +380,7 @@ class Index extends AbstractAction
                 } // foreach
 
                 if ($count != 0) {
-                    $this->_cacheType->cleanType('config');
+                    $this->cacheType->cleanType('config');
                 }
             } // if post
 
@@ -400,9 +406,9 @@ class Index extends AbstractAction
             }
 
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Setconfig execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Setconfig execute ERROR', ['error' => $e->getMessage()]);
 
         }
     }

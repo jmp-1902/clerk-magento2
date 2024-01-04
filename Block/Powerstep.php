@@ -4,8 +4,8 @@ namespace Clerk\Clerk\Block;
 
 use Clerk\Clerk\Model\Config;
 use Magento\Catalog\Block\Product\AbstractProduct;
-use Magento\Catalog\Block\Product\Context;
 use Magento\Catalog\Model\Product;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Store\Model\ScopeInterface;
 
 class Powerstep extends AbstractProduct
@@ -16,7 +16,7 @@ class Powerstep extends AbstractProduct
      *
      * @return string
      */
-    public function getCartUrl()
+    public function getCartUrl(): string
     {
         return $this->_cartHelper->getCartUrl();
     }
@@ -26,9 +26,22 @@ class Powerstep extends AbstractProduct
      *
      * @return string
      */
-    public function getCheckoutUrl()
+    public function getCheckoutUrl(): string
     {
         return $this->getUrl('checkout', ['_secure' => true]);
+    }
+
+    /**
+     * Get image url for product
+     *
+     * @return string
+     */
+    public function getImageUrl(): string
+    {
+        $product = $this->getProduct();
+        return $this->_imageHelper->init($product, 'product_page_image_small')
+            ->setImageFile($product->getImage())
+            ->getUrl();
     }
 
     /**
@@ -36,7 +49,7 @@ class Powerstep extends AbstractProduct
      *
      * @return Product
      */
-    public function getProduct()
+    public function getProduct(): Product
     {
         if (!$this->hasData('current_product')) {
             $this->setData('current_product', $this->_coreRegistry->registry('current_product'));
@@ -46,18 +59,8 @@ class Powerstep extends AbstractProduct
     }
 
     /**
-     * Get image url for product
-     *
-     * @return string
+     * @throws NoSuchEntityException
      */
-    public function getImageUrl()
-    {
-        $product = $this->getProduct();
-        return $this->_imageHelper->init($product, 'product_page_image_small')
-            ->setImageFile($product->getImage())
-            ->getUrl();
-    }
-
     public function getExcludeState()
     {
 
@@ -96,7 +99,7 @@ class Powerstep extends AbstractProduct
 
         }
 
-        return (array) $templates;
+        return $templates;
     }
 
     public function generateRandomString($length = 25)

@@ -1,22 +1,22 @@
 <script>
     require([
         "jquery"
-    ], function($) {
-        $("#<?php echo $block->getSelectId(); ?>").on("change", function() {
+    ], function ($) {
+        $("#<?php echo $block->getSelectId(); ?>").on("change", function () {
             getContentForStore($(this).val());
         });
 
-        $(document).on('change', 'select#clerk_widget_content', function() {
+        $(document).on('change', 'select#clerk_widget_content', function () {
             getParametersForContent($(this).val(), $("#<?php echo $block->getSelectId(); ?>").val());
         });
 
         function getContentForStore(storeId) {
             $.ajax({
                 url: "<?php echo $block->getAjaxUrl(); ?>",
-                data: { type: 'content', store : storeId },
+                data: {type: 'content', store: storeId},
                 dataType: 'json',
                 showLoader: true,
-                success: function(response) {
+                success: function (response) {
                     $('.field-clerk_widget_content').remove();
                     var form = $("#<?php echo $block->getSelectId(); ?>").parents('.fieldset-widget-options');
                     form.append(response.content);
@@ -27,10 +27,10 @@
         function getParametersForContent(content, storeId) {
             $.ajax({
                 url: "<?php echo $block->getAjaxUrl(); ?>",
-                data: { type: 'parameters', content : content, store : storeId },
+                data: {type: 'parameters', content: content, store: storeId},
                 dataType: 'json',
                 showLoader: true,
-                success: function(response) {
+                success: function (response) {
                     $('.clerk_widget_parameters').remove();
                     var form = $("#widget_options").find('.form-inline');
                     console.log(form);

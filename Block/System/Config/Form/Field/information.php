@@ -3,11 +3,13 @@
 namespace Clerk\Clerk\Block\System\Config\Form\Field;
 
 use Magento\Backend\Block\Template\Context;
+use Magento\Config\Block\System\Config\Form\Field;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\Data\Form\Element\AbstractElement;
 use Magento\Framework\Message\ManagerInterface;
 use Magento\Framework\Module\ModuleListInterface;
-use Magento\Framework\App\Config\ScopeConfigInterface;
 
-class information extends \Magento\Config\Block\System\Config\Form\Field
+class information extends Field
 {
     /**
      * @var ModuleListInterface
@@ -29,12 +31,13 @@ class information extends \Magento\Config\Block\System\Config\Form\Field
      * @param array $data
      */
     public function __construct(
-        Context $context,
-        ModuleListInterface $moduleList,
-        ManagerInterface $messageManager,
+        Context              $context,
+        ModuleListInterface  $moduleList,
+        ManagerInterface     $messageManager,
         ScopeConfigInterface $ScopeConfigInterface,
-        array $data = []
-    ) {
+        array                $data = []
+    )
+    {
         $this->moduleList = $moduleList;
         $this->messageManager = $messageManager;
         $this->ScopeConfigInterface = $ScopeConfigInterface;
@@ -44,10 +47,10 @@ class information extends \Magento\Config\Block\System\Config\Form\Field
     /**
      * Render form field
      *
-     * @param \Magento\Framework\Data\Form\Element\AbstractElement $element
+     * @param AbstractElement $element
      * @return string
      */
-    public function render(\Magento\Framework\Data\Form\Element\AbstractElement $element)
+    public function render(AbstractElement $element)
     {
         //Hide scope label and inheritance checkbox
         $element->setCanUseWebsiteValue(false);
@@ -70,10 +73,10 @@ class information extends \Magento\Config\Block\System\Config\Form\Field
 
         $html = '';
 
-        $singlestore =  $this->ScopeConfigInterface->getValue('general/single_store_mode/enabled');
+        $singlestore = $this->ScopeConfigInterface->getValue('general/single_store_mode/enabled');
 
         if ($singlestore !== '1' && $scope === 'default') {
-            $html = 'Your current scope is "Default Config", to configure Clerk settings please change scope to "website" or "store.';
+            $html = 'Your current scope is "Default Settings", to configure Clerk settings please change scope to "website" or "store.';
             return $this->_decorateRowHtml($element, $html);
         } else {
 
@@ -84,11 +87,11 @@ class information extends \Magento\Config\Block\System\Config\Form\Field
     /**
      * Decorate field row html
      *
-     * @param \Magento\Framework\Data\Form\Element\AbstractElement $element
+     * @param AbstractElement $element
      * @param string $html
      * @return string
      */
-    protected function _decorateRowHtml(\Magento\Framework\Data\Form\Element\AbstractElement $element, $html)
+    protected function _decorateRowHtml(AbstractElement $element, $html)
     {
         return '<tr id="row_' . $element->getHtmlId() . '">' . $html . '</tr>';
     }
