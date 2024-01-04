@@ -22,24 +22,24 @@ class Index extends AbstractAction
     /**
      * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var array
      */
-    protected $fieldMap = [
+    protected array $fieldMap = [
         'increment_id' => 'id',
     ];
 
     /**
      * @var string
      */
-    protected $eventPrefix = 'clerk_order';
+    protected string $eventPrefix = 'clerk_order';
 
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * Order controller constructor.
@@ -164,7 +164,7 @@ class Index extends AbstractAction
     /**
      * Parse request arguments
      */
-    protected function getArguments(RequestInterface $request)
+    protected function getArguments(RequestInterface $request): void
     {
         try {
             parent::getArguments($request);

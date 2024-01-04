@@ -23,12 +23,12 @@ class Index extends AbstractAction
     /**
      * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var array
      */
-    protected $fieldMap = [
+    protected array $fieldMap = [
         'entity_id' => 'id',
         'parent_id' => 'parent',
     ];
@@ -36,7 +36,7 @@ class Index extends AbstractAction
     /**
      * @var string
      */
-    protected $eventPrefix = 'clerk_category';
+    protected string $eventPrefix = 'clerk_category';
 
     /**
      * @var PageCollectionFactory
@@ -56,7 +56,7 @@ class Index extends AbstractAction
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * @var CategoryFactory
@@ -66,7 +66,7 @@ class Index extends AbstractAction
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $_product_metadata;
 
     /**
      * Category controller constructor.

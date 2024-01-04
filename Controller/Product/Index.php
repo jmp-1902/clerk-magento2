@@ -25,7 +25,7 @@ class Index extends AbstractAction
     /**
      * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var ProductAdapter
@@ -35,7 +35,7 @@ class Index extends AbstractAction
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * @var Data
@@ -45,7 +45,7 @@ class Index extends AbstractAction
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $_product_metadata;
 
     /**
      * Index constructor.
@@ -135,7 +135,7 @@ class Index extends AbstractAction
      * @param RequestInterface $request
      * @todo Remove this once everything is refactored to use adapters
      */
-    protected function getArguments(RequestInterface $request)
+    protected function getArguments(RequestInterface $request): void
     {
         try {
 

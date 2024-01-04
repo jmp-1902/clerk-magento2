@@ -34,12 +34,12 @@ class Index extends AbstractAction
     /**
      * @var CollectionFactory
      */
-    protected $collectionFactory;
+    protected mixed $collectionFactory;
 
     /**
      * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var CustomerMetadataInterface
@@ -49,12 +49,12 @@ class Index extends AbstractAction
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $_product_metadata;
 
     /**
      * @var string
      */
-    protected $eventPrefix = 'clerk_customer';
+    protected string $eventPrefix = 'clerk_customer';
 
     /**
      * Customer controller constructor.

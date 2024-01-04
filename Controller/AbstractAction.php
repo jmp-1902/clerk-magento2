@@ -4,17 +4,19 @@ namespace Clerk\Clerk\Controller;
 
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use Exception;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Data\Collection;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Module\ModuleList;
 use Magento\Store\Model\ScopeInterface;
-use Magento\Store\Model\Store;
 use Psr\Log\LoggerInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
-use Magento\Store\Api\StoreRepositoryInterface;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Framework\App\ProductMetadataInterface;
 
@@ -23,112 +25,119 @@ abstract class AbstractAction extends Action
     /**
      * @var Api
      */
-    protected $_api;
+    protected Api $_api;
 
     /**
      * @var RequestApi
      */
-    protected $_request_api;
+    protected RequestApi $_request_api;
 
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerk_logger;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
-
-    /**
-     * @var
-     */
-    protected $configWriter;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var bool
      */
-    protected $debug;
+    protected bool $debug;
 
     /**
      * @var array
      */
-    protected $fields;
+    protected array $fields;
 
     /**
      * @var array
      */
-    protected $fieldHandlers = [];
+    protected array $fieldHandlers = [];
 
     /**
      * @var int
      */
-    protected $limit;
+    protected int $limit;
 
     /**
      * @var int
      */
-    protected $page;
+    protected int $page;
 
     /**
-     * @var
+     * @var int
      */
-    protected $start_date;
+    protected int $start_date;
 
     /**
-     * @var
+     * @var int
      */
-    protected $end_date;
-
-    /**
-     * @var string
-     */
-    protected $orderBy;
+    protected int $end_date;
 
     /**
      * @var string
      */
-    protected $order;
+    protected string $orderBy;
+
+    /**
+     * @var string
+     */
+    protected string $order;
 
     /**
      * @var array
      */
-    protected $fieldMap = [];
+    protected array $fieldMap = [];
 
     /**
      * @var mixed
      */
-    protected $collectionFactory;
+    protected mixed $collectionFactory;
 
     /**
      * @var LoggerInterface
      */
-    protected $logger;
+    protected LoggerInterface $logger;
 
     /**
      * @var string
      */
-    protected $eventPrefix = '';
+    protected string $eventPrefix = '';
 
     /**
      * @var ModuleList
      */
-    protected $moduleList;
+    protected ModuleList $moduleList;
 
     /**
      * @var StoreManagerInterface
      */
-    protected $_storeManager;
+    protected StoreManagerInterface $_storeManager;
 
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $_product_metadata;
 
-    private $privateKey;
-    private $publicKey;
-    protected $scopeid;
-    protected $scope;
+    /**
+     * @var string|null
+     */
+    private string|null $privateKey;
+    /**
+     * @var string|null
+     */
+    private string|null $publicKey;
+    /**
+     * @var int
+     */
+    protected int $scopeid;
+    /**
+     * @var string
+     */
+    protected string $scope;
 
     /**
      * AbstractAction constructor.
@@ -143,16 +152,17 @@ abstract class AbstractAction extends Action
      * @param Api $api
      */
     public function __construct(
-        Context $context,
-        StoreManagerInterface $storeManager,
-        ScopeConfigInterface $scopeConfig,
-        LoggerInterface $logger,
-        ModuleList $moduleList,
-        ClerkLogger $clerk_logger,
+        Context                  $context,
+        StoreManagerInterface    $storeManager,
+        ScopeConfigInterface     $scopeConfig,
+        LoggerInterface          $logger,
+        ModuleList               $moduleList,
+        ClerkLogger              $clerk_logger,
         ProductMetadataInterface $product_metadata,
-        RequestApi $request_api,
-        Api $api
-    ) {
+        RequestApi               $request_api,
+        Api                      $api
+    )
+    {
         $this->moduleList = $moduleList;
         $this->scopeConfig = $scopeConfig;
         $this->logger = $logger;
@@ -165,15 +175,15 @@ abstract class AbstractAction extends Action
     }
 
 
-
     /**
      * Dispatch request
      *
      * @param RequestInterface $request
-     * @return \Magento\Framework\App\ResponseInterface
-     * @throws \Magento\Framework\Exception\NotFoundException
+     * @return ResponseInterface|null
+     * @throws FileSystemException
+     * @noinspection PhpPossiblePolymorphicInvocationInspection
      */
-    public function dispatch(RequestInterface $request)
+    public function dispatch(RequestInterface $request): ResponseInterface|null
     {
 
         try {
@@ -182,14 +192,12 @@ abstract class AbstractAction extends Action
             header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
 
             $this->publicKey = $this->getRequestBodyParam('key');
-            $headerToken = $this->getHeaderToken();
+            $this->privateKey = $this->getRequestBodyParam('private_key');
 
-            // check Header Token
-            $authorized = (bool) $this->validateJwt($headerToken);
-            // Check API Key Identification at least one scope
-            $identified = (bool) ($this->verifyKeys() !== -1 || $this->verifyWebsiteKeys() !== -1 || $this->verifyDefaultKeys() !== -1);
+            $identity = $this->identifyScope();
+            $authorized = $this->authorize($identity);
 
-            if (!$identified || !$authorized) {
+            if (!$authorized || empty($identity)) {
                 $this->_actionFlag->set('', self::FLAG_NO_DISPATCH, true);
                 $this->_actionFlag->set('', self::FLAG_NO_POST_DISPATCH, true);
 
@@ -210,122 +218,142 @@ abstract class AbstractAction extends Action
                 return parent::dispatch($request);
             }
 
-            if ($this->verifyWebsiteKeys() !== -1) {
-                $scopeID = $this->verifyWebsiteKeys();
-                $request->setParams(['scope_id' => $scopeID]);
-                $request->setParams(['scope' => 'website']);
-            }
-
-            if ($this->verifyKeys() !== -1) {
-                $scopeID = $this->verifyKeys();
-                $request->setParams(['scope_id' => $scopeID]);
-                $request->setParams(['scope' => 'store']);
-
-            }
-
-            if ($this->_storeManager->isSingleStoreMode()) {
-                $scopeID = $this->verifyDefaultKeys();
-                $request->setParams(['scope_id' => $scopeID]);
-                $request->setParams(['scope' => 'default']);
-            }
+            $request->setParams(['scope_id' => $identity['scope_id']]);
+            $request->setParams(['scope' => $identity['scope']]);
 
             //Filter out request arguments
             $this->getArguments($request);
             return parent::dispatch($request);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Validating API Keys ERROR', ['error' => $e->getMessage()]);
 
         }
+
+        return null;
+    }
+
+    /**
+     * @return array
+     * @throws FileSystemException
+     */
+    private function identifyScope(): array
+    {
+        $scope_info = [];
+        if (!$this->publicKey) {
+            return $scope_info;
+        }
+
+        $website = $this->verifyWebsiteKeys();
+        $store = $this->verifyKeys();
+        $default = $this->verifyDefaultKeys();
+
+        if (null !== $website) {
+            $scope_info = [
+                'scope_id' => $website,
+                'scope' => 'website'
+            ];
+        }
+        if (null !== $store) {
+            $scope_info = [
+                'scope_id' => $store,
+                'scope' => 'store'
+            ];
+        }
+        if (null !== $default && $this->_storeManager->isSingleStoreMode()) {
+            $scope_info = [
+                'scope_id' => $default,
+                'scope' => 'default'
+            ];
+        }
+        return $scope_info;
     }
 
     /**
      * Verify public & private key
      *
-     * @return bool
+     * @return int|null
+     * @throws FileSystemException
      */
-    private function verifyDefaultKeys()
+    private function verifyDefaultKeys(): ?int
     {
 
         try {
 
-            $publicKey = $this->getRequestBodyParam('key');
             $scopeID = $this->_storeManager->getDefaultStoreView()->getId();
-            if ($this->timingSafeEquals($this->getPublicDefaultKey($scopeID), $publicKey)) {
+            if ($this->timingSafeEquals($this->getPublicDefaultKey($scopeID), $this->publicKey)) {
                 return $scopeID;
             }
 
-            return -1;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
-
         }
+        return null;
     }
 
     /**
      * Verify public & private key
      *
-     * @return bool|int
+     * @return int|null
+     * @throws FileSystemException
      */
-    private function verifyKeys()
+    private function verifyKeys(): ?int
     {
 
         try {
 
-            $publicKey = $this->getRequestBodyParam('key');
             $storeids = $this->getStores();
             foreach ($storeids as $scopeID) {
-                if ($this->timingSafeEquals($this->getPublicKey($scopeID), $publicKey)) {
+                if ($this->timingSafeEquals($this->getPublicKey($scopeID), $this->publicKey)) {
                     return $scopeID;
                 }
             }
 
-            return -1;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 
     /**
      * Verify public & private key
      *
-     * @return bool
+     * @return int|null
+     * @throws FileSystemException
      */
-    private function verifyWebsiteKeys()
+    private function verifyWebsiteKeys(): ?int
     {
 
         try {
 
-            $publicKey = $this->getRequestBodyParam('key');
             $websiteids = $this->getWebsites();
             foreach ($websiteids as $scopeID) {
-                if ($this->timingSafeEquals($this->getPublicWebsiteKey($scopeID), $publicKey)) {
+                if ($this->timingSafeEquals($this->getPublicWebsiteKey($scopeID), $this->publicKey)) {
                     return $scopeID;
                 }
             }
 
-            return -1;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('verifyKeys ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 
 
     /**
      * Get public store key
      *
-     * @return string
+     * @param $scopeID
+     * @return string|null
+     * @throws FileSystemException
      */
-    private function getPublicDefaultKey($scopeID)
+    private function getPublicDefaultKey($scopeID): ?string
     {
         try {
 
@@ -335,86 +363,48 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
-
-    /**
-     * Get private website key
-     *
-     * @return string
-     */
-    private function getPrivateDefaultKey($scopeID)
-    {
-        try {
-
-            return $this->scopeConfig->getValue(
-                Config::XML_PATH_PRIVATE_KEY,
-                ScopeInterface::SCOPE_STORE,
-                $scopeID
-            );
-
-        } catch (\Exception $e) {
-
-            $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
-
-        }
-    }
-
 
     /**
      * Get private store key
      *
-     * @return string
+     * @param string $scope
+     * @param int $scope_id
+     * @return string|null
+     * @throws FileSystemException
      */
-    private function getPrivateKey($scopeID)
+    private function getPrivateKey(string $scope, int $scope_id): ?string
     {
         try {
 
             return $this->scopeConfig->getValue(
                 Config::XML_PATH_PRIVATE_KEY,
-                ScopeInterface::SCOPE_STORES,
-                $scopeID
+                $scope,
+                $scope_id
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
 
         }
-    }
-
-    /**
-     * Get private website key
-     *
-     * @return string
-     */
-    private function getPrivateWebsiteKey($scopeID)
-    {
-        try {
-
-            return $this->scopeConfig->getValue(
-                Config::XML_PATH_PRIVATE_KEY,
-                ScopeInterface::SCOPE_WEBSITES,
-                $scopeID
-            );
-
-        } catch (\Exception $e) {
-
-            $this->clerk_logger->error('getPrivateKey ERROR', ['error' => $e->getMessage()]);
-
-        }
+        return null;
     }
 
     /**
      * Get public store key
      *
-     * @return string
+     * @param $scopeID
+     * @return string|null
+     * @throws FileSystemException
      */
-    private function getPublicKey($scopeID)
+    private function getPublicKey($scopeID): ?string
     {
         try {
 
@@ -424,18 +414,19 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 
     /**
      * Get Token from Request Header
      * @return string
      */
-    private function getHeaderToken()
+    private function getHeaderToken(): string
     {
         try {
 
@@ -452,21 +443,23 @@ abstract class AbstractAction extends Action
             }
 
             $token = $auth_header_array[1];
-            return $token;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->logger->error('getHeaderToken ERROR', ['error' => $e->getMessage()]);
 
         }
+        return $token;
     }
 
     /**
      * Get public website key
      *
-     * @return string
+     * @param $scopeID
+     * @return string|null
+     * @throws FileSystemException
      */
-    private function getPublicWebsiteKey($scopeID)
+    private function getPublicWebsiteKey($scopeID): string|null
     {
         try {
 
@@ -476,19 +469,20 @@ abstract class AbstractAction extends Action
                 $scopeID
             );
 
-        } catch (\Exception $e) {
-
+        } catch (Exception $e) {
             $this->clerk_logger->error('getPublicKey ERROR', ['error' => $e->getMessage()]);
-
         }
+        return null;
     }
 
     /**
      * Timing safe key comparison
      *
+     * @param string $safe
+     * @param string $user
      * @return boolean
      */
-    private function timingSafeEquals($safe, $user)
+    private function timingSafeEquals(string $safe, string $user): bool
     {
         $safeLen = strlen($safe);
         $userLen = strlen($user);
@@ -509,12 +503,13 @@ abstract class AbstractAction extends Action
 
     /**
      * Parse request arguments
+     * @throws FileSystemException
      */
-    protected function getArguments(RequestInterface $request)
+    protected function getArguments(RequestInterface $request): void
     {
         try {
 
-            $this->debug = (bool) $request->getParam('debug', false);
+            $this->debug = (bool)$request->getParam('debug', false);
             $startDate = strtotime('today - 200 years');
             $startDateParam = $request->getParam('start_date');
             if (!empty($startDateParam)) {
@@ -535,31 +530,23 @@ abstract class AbstractAction extends Action
             }
             $this->start_date = date('Y-m-d', $startDate);
             $this->end_date = date('Y-m-d', $endDate);
-            $this->limit = (int) $request->getParam('limit', 0);
-            $this->page = (int) $request->getParam('page', 0);
+            $this->limit = (int)$request->getParam('limit', 0);
+            $this->page = (int)$request->getParam('page', 0);
             $this->orderBy = $request->getParam('orderby', 'entity_id');
             $this->order = $request->getParam('order', 'asc');
-            $this->limit = (int) $request->getParam('limit', 0);
-            $this->page = (int) $request->getParam('page', 0);
+            $this->limit = (int)$request->getParam('limit', 0);
+            $this->page = (int)$request->getParam('page', 0);
             $this->orderBy = $request->getParam('orderby', 'entity_id');
             $this->scope = $request->getParam('scope');
             $this->scopeid = $request->getParam('scope_id');
 
-            if ($request->getParam('order') === 'desc') {
-                $this->order = \Magento\Framework\Data\Collection::SORT_ORDER_DESC;
-            } else {
-                $this->order = \Magento\Framework\Data\Collection::SORT_ORDER_ASC;
-            }
+            $this->order = $request->getParam('order') === 'desc' ? Collection::SORT_ORDER_DESC : Collection::SORT_ORDER_ASC;
 
             /**
              * Explode fields on , and filter out "empty" entries
              */
             $fields = $request->getParam('fields');
-            if ($fields) {
-                $this->fields = array_filter(explode(',', $fields), 'strlen');
-            } else {
-                $this->fields = $this->getDefaultFields();
-            }
+            $this->fields = $fields ? array_filter(explode(',', $fields), 'strlen') : $this->getDefaultFields();
             $this->fields = array_merge(['entity_id'], $this->fields);
 
             foreach ($this->fields as $key => $field) {
@@ -568,7 +555,7 @@ abstract class AbstractAction extends Action
 
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('getArguments ERROR', ['error' => $e->getMessage()]);
 
@@ -580,15 +567,17 @@ abstract class AbstractAction extends Action
      *
      * @return array
      */
-    protected function getDefaultFields()
+    protected function getDefaultFields(): array
     {
         return [];
     }
 
     /**
      * Execute request
+     * @throws FileSystemException
+     * @noinspection PhpPossiblePolymorphicInvocationInspection
      */
-    public function execute()
+    public function execute(): void
     {
         try {
 
@@ -634,7 +623,7 @@ abstract class AbstractAction extends Action
                 $this->clerk_logger->log('Fetched page ' . $this->page . ' with ' . count($response) . ' Orders', ['response' => $response]);
                 $this->getResponse()->setBody(json_encode($response));
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->getResponse()
                 ->setHttpResponseCode(500)
                 ->setHeader('Content-Type', 'application/json', true)
@@ -642,7 +631,7 @@ abstract class AbstractAction extends Action
                     json_encode([
                         'error' => [
                             'code' => 500,
-                            'message' => 'An exception occured',
+                            'message' => 'An exception occurred',
                             'description' => $e->getMessage(),
                         ]
                     ])
@@ -654,9 +643,10 @@ abstract class AbstractAction extends Action
     /**
      * Prepare collection
      *
-     * @return mixed
+     * @return object|null
+     * @throws FileSystemException
      */
-    protected function prepareCollection()
+    protected function prepareCollection(): ?object
     {
 
         try {
@@ -681,11 +671,12 @@ abstract class AbstractAction extends Action
 
             return $collection;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('prepareCollection ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 
     /**
@@ -693,8 +684,9 @@ abstract class AbstractAction extends Action
      *
      * @param $field
      * @return mixed
+     * @throws FileSystemException
      */
-    protected function getFieldName($field)
+    protected function getFieldName($field): mixed
     {
 
         try {
@@ -703,13 +695,12 @@ abstract class AbstractAction extends Action
                 return $this->fieldMap[$field];
             }
 
-            return $field;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Field Name ERROR', ['error' => $e->getMessage()]);
 
         }
+        return $field;
     }
 
     /**
@@ -719,7 +710,7 @@ abstract class AbstractAction extends Action
      * @param $field
      * @return mixed
      */
-    protected function getAttributeValue($resourceItem, $field)
+    protected function getAttributeValue($resourceItem, $field): mixed
     {
         return $resourceItem[$field];
     }
@@ -730,82 +721,112 @@ abstract class AbstractAction extends Action
      * @param $field
      * @param callable $handler
      */
-    public function addFieldHandler($field, callable $handler)
+    public function addFieldHandler($field, callable $handler): void
     {
         $this->fieldHandlers[$field] = $handler;
     }
 
-    public function getWebsites()
+    public function getWebsites(): array
     {
         $websiteIds = [];
         foreach ($this->_storeManager->getWebsites() as $website) {
             $websiteId = $website["website_id"];
-            array_push($websiteIds, $websiteId);
+            $websiteIds[] = $websiteId;
         }
 
         return $websiteIds;
     }
 
-    public function getStores()
+    public function getStores(): array
     {
-        $storeids = array_keys($this->_storeManager->getStores(true));
-        return $storeids;
+        return array_keys($this->_storeManager->getStores(true));
     }
 
-    public function getRequestBodyParam($key)
+    /**
+     * @param $key
+     * @return mixed|null
+     * @throws FileSystemException
+     */
+    public function getRequestBodyParam($key): mixed
     {
         try {
 
             $body = $this->_request_api->getBodyParams();
-            if ($body) {
-                if (gettype($body) === 'array') {
-                    if (array_key_exists($key, $body)) {
-                        return $body[$key];
-                    }
-                }
+
+            if ($body && is_array($body) && array_key_exists($key, $body)) {
+                return $body[$key];
             }
 
-            return false;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Request Body ERROR', ['error' => $e->getMessage()]);
 
         }
 
+        return null;
     }
 
     /**
      * Validate token with Clerk
      *
-     * @param string
      * @return bool
+     * @throws Exception
      */
-    public function validateJwt($token_string = null)
+    public function validateJwt(): bool
     {
 
-        if (!$token_string || !is_string($token_string)) {
+        $token_string = $this->getHeaderToken();
+
+        if (!$token_string) {
             return false;
         }
 
         $rsp_array = $this->_api->verifyToken($token_string, $this->publicKey);
 
-        if (!$rsp_array) {
+        if (!is_array($rsp_array)) {
             return false;
         }
 
-        try {
-
-            if (isset($rsp_array['status']) && $rsp_array['status'] == 'ok') {
-                return true;
-            }
-
-            return false;
-
-        } catch (\Exception $e) {
-            $this->logger->error('ERROR verify_token', array('error' => $e->getMessage()));
+        if (!array_key_exists('status', $rsp_array)) {
             return false;
         }
+
+        if ($rsp_array['status'] !== 'ok') {
+            return false;
+        }
+
+        return true;
+
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function authorize(array $scope_info): bool
+    {
+        if (empty($scope_info)) {
+            return false;
+        }
+        if (!array_key_exists('scope_id', $scope_info) || !array_key_exists('scope', $scope_info)) {
+            return false;
+        }
+
+        $legacy_auth = $this->scopeConfig->getValue(
+            Config::XML_PATH_USE_LEGACY_AUTH,
+            $scope_info['scope'],
+            $scope_info['scope_id']
+        );
+
+        if (!$legacy_auth) {
+            // check Header Token
+            return $this->validateJwt();
+        }
+
+        if (!$this->privateKey) {
+            return false;
+        }
+        $private_key = $this->getPrivateKey($scope_info['scope'], $scope_info['scope_id']);
+        return $this->timingSafeEquals($private_key, $this->privateKey);
 
     }
 }
