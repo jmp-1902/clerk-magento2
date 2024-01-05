@@ -2,19 +2,22 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
+use Magento\Checkout\Model\Session;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
 use Magento\Framework\View\Element\Template\Context;
-use Magento\Checkout\Model\Session;
-use Magento\Store\Model\ScopeInterface;
 use Magento\GroupedProduct\Model\Product\Type\Grouped;
+use Magento\Sales\Model\Order;
 
 class SalesTracking extends Template
 {
     /**
-     * @var \Magento\Checkout\Model\Session
+     * @var Session
      */
-    protected $_checkoutSession;
+    protected Session $checkoutSession;
 
     /**
      * SalesTracking constructor.
@@ -22,21 +25,29 @@ class SalesTracking extends Template
      * @param Context $context
      * @param Session $checkoutSession
      * @param Grouped $productGrouped
+     * @param Settings $settingsHelper
+     * @param ContextHelper $contextHelper
      * @param array $data
+     * @throws NoSuchEntityException
      */
     public function __construct(
-        Context $context,
-        Session $checkoutSession,
-        Grouped $productGrouped,
-        array $data = []
-        )
+        Context       $context,
+        Session       $checkoutSession,
+        Grouped       $productGrouped,
+        Settings      $settingsHelper,
+        ContextHelper $contextHelper,
+        array         $data = []
+    )
     {
         parent::__construct(
             $context,
             $data
         );
-        $this->_checkoutSession = $checkoutSession;
-        $this->_productGrouped = $productGrouped;
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
+        $this->checkoutSession = $checkoutSession;
+        $this->productGrouped = $productGrouped;
     }
 
     /**
@@ -44,9 +55,19 @@ class SalesTracking extends Template
      *
      * @return string
      */
-    public function getIncrementId()
+    public function getIncrementId(): string
     {
         return $this->getOrder()->getIncrementId();
+    }
+
+    /**
+     * Get last order from session
+     *
+     * @return Order
+     */
+    private function getOrder(): Order
+    {
+        return $this->checkoutSession->getLastRealOrder();
     }
 
     /**
@@ -54,22 +75,10 @@ class SalesTracking extends Template
      *
      * @return string
      */
-    public function getCustomerEmail()
+    public function getCustomerEmail(): string
     {
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        $collect_emails = $this->_scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_EMAILS, $scope, $scope_id);
-        if ($collect_emails == '1') {
-            return $this->getOrder()->getCustomerEmail();
-        } else {
-            return "";
-        }
+        $collect_emails = $this->config->get(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_EMAILS, $this->ctx);
+        return $collect_emails ? $this->getOrder()->getCustomerEmail() : "";
     }
 
     /**
@@ -77,44 +86,23 @@ class SalesTracking extends Template
      *
      * @return string
      */
-    public function getProducts()
+    public function getProducts(): string
     {
         $order = $this->getOrder();
         $products = [];
 
         foreach ($order->getAllVisibleItems() as $item) {
-            $groupParentId = $this->_productGrouped->getParentIdsByChild($item->getProductId());
-
-            if (isset($groupParentId[0])) {
-
-                $product = [
-                    'id' => $groupParentId[0],
-                    'quantity' => (int)$item->getQtyOrdered(),
-                    'price' => (float)$item->getBasePrice(),
-                ];
-
-            } else {
-
-                $product = [
-                    'id'       => $item->getProductId(),
-                    'quantity' => (int) $item->getQtyOrdered(),
-                    'price'    => (float) $item->getBasePrice(),
-                ];
-            }
+            $groupParentId = $this->productGrouped->getParentIdsByChild($item->getProductId());
+            $productId = isset($groupParentId[0]) ?? $item->getProductId();
+            $product = [
+                'id' => $productId,
+                'quantity' => (int)$item->getQtyOrdered(),
+                'price' => (float)$item->getBasePrice(),
+            ];
 
             $products[] = $product;
         }
 
         return json_encode($products);
-    }
-
-    /**
-     * Get last order from session
-     *
-     * @return \Magento\Sales\Model\Order
-     */
-    private function getOrder()
-    {
-        return $this->_checkoutSession->getLastRealOrder();
     }
 }

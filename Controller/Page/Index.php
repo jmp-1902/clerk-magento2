@@ -15,9 +15,8 @@ use Magento\Framework\Api\SearchCriteriaBuilderFactory;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ProductMetadataInterface;
-use Magento\Framework\App\ResponseInterface;
-use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Store\Model\StoreManagerInterface;
@@ -29,12 +28,12 @@ class Index extends AbstractAction
     /**
      * @var PageFactory
      */
-    protected $_pageFactory;
+    protected PageFactory $pageFactory;
 
     /**
      * @var PageHelper
      */
-    protected $_pageHelper;
+    protected PageHelper $pageHelper;
 
     /**
      * @var ClerkLogger
@@ -44,22 +43,22 @@ class Index extends AbstractAction
     /**
      * @var PageRepositoryInterface
      */
-    protected $_PageRepositoryInterface;
+    protected PageRepositoryInterface $pageRepositoryInterface;
 
     /**
      * @var SearchCriteriaBuilder
      */
-    protected $_SearchCriteriaBuilder;
+    protected SearchCriteriaBuilder $searchCriteriaBuilder;
 
     /**
      * @var SearchCriteriaBuilderFactory
      */
-    protected $_searchCriteriaBuilderFactory;
+    protected SearchCriteriaBuilderFactory $searchCriteriaBuilderFactory;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $_scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var ModuleList
@@ -77,8 +76,11 @@ class Index extends AbstractAction
      * @param ScopeConfigInterface $scopeConfig
      * @param PageRepositoryInterface $PageRepositoryInterface
      * @param SearchCriteriaBuilder $SearchCriteriaBuilder
+     * @param StoreManagerInterface $storeManager
+     * @param SearchCriteriaBuilderFactory $searchCriteriaBuilderFactory
      * @param LoggerInterface $logger
      * @param ClerkLogger $clerk_logger
+     * @param ModuleList $moduleList
      * @param PageHelper $pageHelper
      * @param ProductMetadataInterface $productMetadata
      * @param PageFactory $pageFactory
@@ -102,15 +104,15 @@ class Index extends AbstractAction
         Api                          $api
     )
     {
-        $this->_searchCriteriaBuilderFactory = $searchCriteriaBuilderFactory;
-        $this->_PageRepositoryInterface = $PageRepositoryInterface;
-        $this->_SearchCriteriaBuilder = $SearchCriteriaBuilder;
+        $this->searchCriteriaBuilderFactory = $searchCriteriaBuilderFactory;
+        $this->pageRepositoryInterface = $PageRepositoryInterface;
+        $this->searchCriteriaBuilder = $SearchCriteriaBuilder;
         $this->clerkLogger = $clerk_logger;
-        $this->_scopeConfig = $scopeConfig;
+        $this->scopeConfig = $scopeConfig;
         $this->moduleList = $moduleList;
         $this->storeManager = $storeManager;
-        $this->_pageHelper = $pageHelper;
-        $this->_pageFactory = $pageFactory;
+        $this->pageHelper = $pageHelper;
+        $this->pageFactory = $pageFactory;
         parent::__construct(
             $context,
             $storeManager,
@@ -125,7 +127,7 @@ class Index extends AbstractAction
     }
 
     /**
-     * @return ResponseInterface|ResultInterface|void
+     * @return void
      * @throws FileSystemException
      */
     public function execute(): void
@@ -133,13 +135,13 @@ class Index extends AbstractAction
 
         try {
 
-            $Include_pages = $this->scopeConfig->getValue(Config::XML_PATH_INCLUDE_PAGES, $this->scope, $this->scopeid);
+            $includePages = $this->scopeConfig->getValue(Config::XML_PATH_INCLUDE_PAGES, $this->scope, $this->scopeid);
 
-            $Pages_Additional_Fields = is_string($this->scopeConfig->getValue(Config::XML_PATH_PAGES_ADDITIONAL_FIELDS, $this->scope, $this->scopeid)) ? explode(',', $this->scopeConfig->getValue(Config::XML_PATH_PAGES_ADDITIONAL_FIELDS, $this->scope, $this->scopeid)) : [];
+            $additionalFieldsPages = is_string($this->scopeConfig->getValue(Config::XML_PATH_PAGES_ADDITIONAL_FIELDS, $this->scope, $this->scopeid)) ? explode(',', $this->scopeConfig->getValue(Config::XML_PATH_PAGES_ADDITIONAL_FIELDS, $this->scope, $this->scopeid)) : [];
 
             $pages = [];
 
-            if ($Include_pages) {
+            if ($includePages) {
 
                 $this->getResponse()
                     ->setHttpResponseCode(200)
@@ -147,96 +149,42 @@ class Index extends AbstractAction
 
                 // collection of pages visible on all views
                 $pages_default = $this->getPageCollection($this->page, $this->limit, 0);
-
-                foreach ($pages_default->getData() as $page_default) {
-
-                    try {
-                        $geturl = $this->_pageHelper->getPageUrl($page_default['page_id']);
-                        if ($geturl) {
-                            $url = $geturl;
-                        } else {
-                            continue;
-                        }
-                        $page['id'] = $page_default['page_id'];
-                        $page['type'] = 'cms page';
-                        $page['url'] = $url;
-                        $page['title'] = $page_default['title'];
-                        $page['text'] = $page_default['content'];
-
-                        if (!$this->ValidatePage($page)) {
-
-                            continue;
-
-                        }
-
-                        foreach ($Pages_Additional_Fields as $Pages_Additional_Field) {
-
-                            $Pages_Additional_Field = str_replace(' ', '', $Pages_Additional_Field);
-
-                            if (!empty($page_default[$Pages_Additional_Field])) {
-
-                                $page[$Pages_Additional_Field] = $page_default[$Pages_Additional_Field];
-
-                            }
-
-                        }
-
-                        $pages[] = $page;
-
-                    } catch (Exception $e) {
-
-                        continue;
-
-                    }
-
-                }
-
-                // collection of pages visible only on this view
                 $pages_store = $this->getPageCollection($this->page, $this->limit, $this->scopeid);
-                foreach ($pages_store->getData() as $page_store) {
-
+                $pages_all = array_merge($pages_default->getData(), $pages_store->getData());
+                foreach ($pages_all as $item) {
+                    $page = array();
                     try {
+                        $url = $this->pageHelper->getPageUrl($item['page_id']);
 
-                        $geturl = $this->_pageHelper->getPageUrl($page_store['page_id']);
-                        if ($geturl) {
-                            $url = $geturl;
-                        } else {
+                        if (!$url) {
                             continue;
                         }
-                        $page['id'] = $page_store['page_id'];
+
+                        $page['id'] = $item['page_id'];
                         $page['type'] = 'cms page';
                         $page['url'] = $url;
-                        $page['title'] = $page_store['title'];
-                        $page['text'] = $page_store['content'];
+                        $page['title'] = $item['title'];
+                        $page['text'] = $item['content'];
 
-                        if (!$this->ValidatePage($page)) {
-
+                        if (!$this->validatePageMandatoryFields($page)) {
                             continue;
-
                         }
 
-                        foreach ($Pages_Additional_Fields as $Pages_Additional_Field) {
-
-                            $Pages_Additional_Field = str_replace(' ', '', $Pages_Additional_Field);
-
-                            if (!empty($page_store[$Pages_Additional_Field])) {
-
-                                $page[$Pages_Additional_Field] = $page_store[$Pages_Additional_Field];
-
+                        foreach ($additionalFieldsPages as $field) {
+                            $field = str_replace(' ', '', $field);
+                            if (empty($item[$field])) {
+                                continue;
                             }
 
+                            $page[$field] = $item[$field];
                         }
 
                         $pages[] = $page;
 
                     } catch (Exception $e) {
-
                         continue;
-
                     }
-
                 }
-
             }
 
             $this->getResponse()->setBody(json_encode($pages));
@@ -248,11 +196,14 @@ class Index extends AbstractAction
         }
     }
 
-    public function getPageCollection($page, $limit, $storeid)
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function getPageCollection($page, $limit, $storeId)
     {
 
-        $store = $this->storeManager->getStore($storeid);
-        $collection = $this->_pageFactory->create();
+        $store = $this->storeManager->getStore($storeId);
+        $collection = $this->pageFactory->create();
         $collection->addFilter('is_active', 1);
         $collection->addFilter('store_id', $store->getId());
         $collection->addStoreFilter($store);
@@ -261,19 +212,17 @@ class Index extends AbstractAction
         return $collection;
     }
 
-    public function ValidatePage($Page)
+    /**
+     * @param $page
+     * @return bool
+     */
+    public function validatePageMandatoryFields($page): bool
     {
-
-        foreach ($Page as $key => $content) {
-
+        foreach ($page as $key => $content) {
             if (empty($content)) {
-
                 return false;
-
             }
-
         }
-
         return true;
     }
 }

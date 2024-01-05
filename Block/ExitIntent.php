@@ -2,35 +2,38 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ScopeInterface;
 
 class ExitIntent extends Template
 {
     /**
+     * @throws NoSuchEntityException
+     */
+    public function __construct(
+        Template\Context $context,
+        Settings         $settingsHelper,
+        ContextHelper    $contextHelper,
+        array            $data = []
+    )
+    {
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
+        parent::__construct($context, $data);
+    }
+
+    /**
      * Get exit intent template
      *
-     * @return mixed
+     * @return array
      */
-    public function getExitIntentTemplate()
+    public function getExitIntentTemplate(): array
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        $template_contents = $this->_scopeConfig->getValue(Config::XML_PATH_EXIT_INTENT_TEMPLATE, $scope, $scope_id);
-        if ($template_contents) {
-            $template_contents = explode(',', $template_contents);
-        } else {
-            $template_contents = [0 => ''];
-        }
-
-        return $template_contents;
+        $template_contents = $this->config->get(Config::XML_PATH_EXIT_INTENT_TEMPLATE, $this->ctx);
+        return $template_contents ? explode(',', $template_contents) : [0 => ''];
     }
 }

@@ -4,370 +4,383 @@ namespace Clerk\Clerk\Model\Adapter;
 
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
 use Clerk\Clerk\Model\Config;
+use Exception;
+use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Store\Model\StoreManagerInterface;
-use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 
 abstract class AbstractAdapter
 {
 
-  const PRODUCT_TYPE_SIMPLE = 'simple';
-  const PRODUCT_TYPE_CONFIGURABLE = 'configurable';
-  const PRODUCT_TYPE_GROUPED = 'grouped';
-  const PRODUCT_TYPE_BUNDLE = 'bundle';
-  const PRODUCT_TYPES = [
-    self::PRODUCT_TYPE_SIMPLE,
-    self::PRODUCT_TYPE_CONFIGURABLE,
-    self::PRODUCT_TYPE_GROUPED,
-    self::PRODUCT_TYPE_BUNDLE
-  ];
+    const PRODUCT_TYPE_SIMPLE = 'simple';
+    const PRODUCT_TYPE_CONFIGURABLE = 'configurable';
+    const PRODUCT_TYPE_GROUPED = 'grouped';
+    const PRODUCT_TYPE_BUNDLE = 'bundle';
+    const PRODUCT_TYPES = [
+        self::PRODUCT_TYPE_SIMPLE,
+        self::PRODUCT_TYPE_CONFIGURABLE,
+        self::PRODUCT_TYPE_GROUPED,
+        self::PRODUCT_TYPE_BUNDLE
+    ];
 
-  /**
-   * @var ScopeConfigInterface
-   */
-  protected $scopeConfig;
+    /**
+     * @var ScopeConfigInterface
+     */
+    protected ScopeConfigInterface $scopeConfig;
 
-  /**
-   * @var
-   */
-  protected $clerk_logger;
+    /**
+     * @var ClerkLogger
+     */
+    protected ClerkLogger $clerkLogger;
 
-  /**
-   * @var ManagerInterface
-   */
-  protected $eventManager;
+    /**
+     * @var ManagerInterface
+     */
+    protected ManagerInterface $eventManager;
 
-  /**
-   * @var StoreManagerInterface
-   */
-  protected $storeManager;
+    /**
+     * @var StoreManagerInterface
+     */
+    protected StoreManagerInterface $storeManager;
 
-  /**
-   * @var mixed
-   */
-  protected $collectionFactory;
+    /**
+     * @var mixed
+     */
+    protected mixed $collectionFactory;
 
-  /**
-   * @var array
-   */
-  protected $fieldMap;
+    /**
+     * @var array
+     */
+    protected array $fieldMap;
 
-  /**
-   * @var array
-   */
-  protected $fields = [];
+    /**
+     * @var array
+     */
+    protected array $fields = [];
 
-  /**
-   * @var array
-   */
-  protected $fieldHandlers = [];
+    /**
+     * @var array
+     */
+    protected array $fieldHandlers = [];
 
-  /**
-   * AbstractAdapter constructor.
-   *
-   * @param ScopeConfigInterface $scopeConfig
-   * @param ManagerInterface $eventManager
-   * @param StoreManagerInterface $storeManager
-   * @param mixed $collectionFactory
-   */
-  public function __construct(
-    ScopeConfigInterface $scopeConfig,
-    ManagerInterface $eventManager,
-    StoreManagerInterface $storeManager,
-    CollectionFactory $collectionFactory,
-    ClerkLogger $clerk_logger
-  ) {
-    $this->clerk_logger = $clerk_logger;
-    $this->scopeConfig = $scopeConfig;
-    $this->eventManager = $eventManager;
-    $this->storeManager = $storeManager;
-    $this->collectionFactory = $collectionFactory;
-    $this->addFieldHandlers();
-  }
-
-  /**
-   * Add default fieldhandlers
-   */
-  abstract protected function addFieldHandlers();
-
-  /**
-   * @param $fields
-   * @param $page
-   * @param $limit
-   * @param $orderBy
-   * @param $order
-   * @param $scope
-   * @param $scopeid
-   * @return array
-   */
-  public function getResponse($fields, $page, $limit, $orderBy, $order, $scope, $scopeid)
-  {
-    try {
-
-      if ($this->storeManager->isSingleStoreMode()) {
-        $scope = 'store';
-        $scopeid = $this->storeManager->getDefaultStoreView()->getId();
-      }
-
-      $this->setFields($fields, $scope, $scopeid);
-
-      $collection = $this->prepareCollection($page, $limit, $orderBy, $order, $scope, $scopeid);
-
-      $response = [];
-
-      if ($page <= $collection->getLastPageNumber()) {
-        //Build response
-        foreach ($collection as $resourceItem) {
-          $item = $this->getInfoForItem($resourceItem, $scope, $scopeid);
-
-          $response[] = $item;
-        }
-      }
-
-      return $response;
-
-    } catch (\Exception $e) {
-
-      $this->clerk_logger->error('Getting Response ERROR', ['error' => $e->getMessage()]);
-
+    /**
+     * AbstractAdapter constructor.
+     *
+     * @param ScopeConfigInterface $scopeConfig
+     * @param ManagerInterface $eventManager
+     * @param StoreManagerInterface $storeManager
+     * @param mixed $collectionFactory
+     * @param ClerkLogger $clerkLogger
+     */
+    public function __construct(
+        ScopeConfigInterface  $scopeConfig,
+        ManagerInterface      $eventManager,
+        StoreManagerInterface $storeManager,
+        CollectionFactory     $collectionFactory,
+        ClerkLogger           $clerkLogger
+    )
+    {
+        $this->clerkLogger = $clerkLogger;
+        $this->scopeConfig = $scopeConfig;
+        $this->eventManager = $eventManager;
+        $this->storeManager = $storeManager;
+        $this->collectionFactory = $collectionFactory;
+        $this->addFieldHandlers();
     }
-  }
 
-  /**
-   * @return mixed
-   */
-  abstract protected function prepareCollection($page, $limit, $orderBy, $order, $scope, $scopeid);
+    /**
+     * Add default fieldhandlers
+     */
+    abstract protected function addFieldHandlers();
 
-  /**
-   * Get information for single resource item
-   *
-   * @param $fields
-   * @param $resourceItem
-   * @return array
-   */
-  public function getInfoForItem($resourceItem, $scope, $scopeid)
-  {
-    try {
+    /**
+     * @param $fields
+     * @param $page
+     * @param $limit
+     * @param $orderBy
+     * @param $order
+     * @param $scope
+     * @param $scopeid
+     * @return array
+     * @throws FileSystemException
+     */
+    public function getResponse($fields, $page, $limit, $orderBy, $order, $scope, $scopeid): array
+    {
 
-      $info = array();
-      $additionalFields = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ADDITIONAL_FIELDS, $scope, $scopeid);
-      $heavyAttributeQuery = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ADDITIONAL_FIELDS_HEAVY_QUERY, $scope, $scopeid);
-      $customFields = is_string($additionalFields) ? str_replace(' ', '', explode(',', $additionalFields)) : [];
-      $resourceItemTypeId = $resourceItem->getTypeId();
-      $resourceItemTypeInstance = $resourceItem->getTypeInstance();
+        $response = [];
+        try {
 
-      $this->setFields($customFields, $scope, $scopeid);
-
-      foreach ($this->getFields() as $field) {
-        if (isset($this->fieldHandlers[$field])) {
-          $info[$this->getFieldName($field)] = $this->fieldHandlers[$field]($resourceItem);
-        }
-
-        if (isset($resourceItem[$field]) && !array_key_exists($field, $info)) {
-          $attributeValue = $this->getAttributeValue($resourceItem, $field);
-          if(!isset($attributeValue) && $heavyAttributeQuery) {
-            $attributeValue = $this->getAttributeValueHeavy($resourceItem, $field);
-          }
-          $info[$this->getFieldName($field)] = $attributeValue;
-        }
-
-
-
-        if ($resourceItemTypeId === self::PRODUCT_TYPE_CONFIGURABLE) {
-          $usedProductsAttributeValues = array();
-          $entityField = 'entity_'.$field;
-          $usedProducts = $resourceItemTypeInstance->getUsedProducts($resourceItem);
-          if ( ! empty($usedProducts) ){
-            foreach ($usedProducts as $usedProduct) {
-              if (isset($usedProduct[$field])) {
-                $usedProductsAttributeValues[] = $this->getAttributeValue($usedProduct, $field);
-              } elseif (isset($usedProduct[$entityField])) {
-                $usedProductsAttributeValues[] = $this->getAttributeValue($usedProduct, $entityField);
-              }
-              if(empty($usedProductsAttributeValues && $heavyAttributeQuery)) {
-                $attributeValue = $this->getAttributeValueHeavy($usedProduct, $field);
-                if(isset($attributeValue)){
-                  $usedProductsAttributeValues[] = $attributeValue;
-                }
-              }
+            if ($this->storeManager->isSingleStoreMode()) {
+                $scope = 'store';
+                $scopeid = $this->storeManager->getDefaultStoreView()->getId();
             }
-          }
-          if ( ! empty($usedProductsAttributeValues) && !array_key_exists('child_'.$this->getFieldName($field).'s', $info) ) {
-            $usedProductsAttributeValues = is_array($usedProductsAttributeValues) ? $this->flattenArray($usedProductsAttributeValues) : $usedProductsAttributeValues;
-            $info["child_".$this->getFieldName($field)."s"] = $usedProductsAttributeValues;
-          }
-        }
 
-        if ($resourceItemTypeId === self::PRODUCT_TYPE_GROUPED) {
-          $associatedProductsAttributeValues = array();
-          $entityField = 'entity_'.$field;
-          $associatedProducts = $resourceItemTypeInstance->getAssociatedProducts($resourceItem);
-          if ( ! empty($associatedProducts) ) {
-            foreach ($associatedProducts as $associatedProduct) {
-              if (isset($associatedProduct[$field])) {
-                $associatedProductsAttributeValues[] = $this->getAttributeValue($associatedProduct, $field);
-              } elseif (isset($associatedProduct[$entityField])) {
-                $associatedProductsAttributeValues[] = $this->getAttributeValue($associatedProduct, $entityField);
-              }
-              if(empty($associatedProductsAttributeValues && $heavyAttributeQuery)) {
-                $attributeValue = $this->getAttributeValueHeavy($associatedProduct, $field);
-                if(isset($attributeValue)){
-                  $associatedProductsAttributeValues[] = $attributeValue;
+            $this->setFields($fields, $scope, $scopeid);
+
+            $collection = $this->prepareCollection($page, $limit, $orderBy, $order, $scope, $scopeid);
+
+            if ($page <= $collection->getLastPageNumber()) {
+                //Build response
+                foreach ($collection as $resourceItem) {
+                    $item = $this->getInfoForItem($resourceItem, $scope, $scopeid);
+
+                    $response[] = $item;
+                }
+            }
+
+        } catch (Exception $e) {
+            $this->clerkLogger->error('Getting Response ERROR', ['error' => $e->getMessage()]);
+        }
+        return $response;
+    }
+
+    /**
+     * @param $page
+     * @param $limit
+     * @param $orderBy
+     * @param $order
+     * @param $scope
+     * @param $scopeid
+     * @return mixed
+     */
+    abstract protected function prepareCollection($page, $limit, $orderBy, $order, $scope, $scopeid): mixed;
+
+    /**
+     * Get information for single resource item
+     *
+     * @param $resourceItem
+     * @param $scope
+     * @param $scopeid
+     * @return array
+     * @throws FileSystemException
+     */
+    public function getInfoForItem($resourceItem, $scope, $scopeid): array
+    {
+        $info = array();
+
+        try {
+
+            $fields = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ADDITIONAL_FIELDS, $scope, $scopeid);
+            $emulateFields = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_ADDITIONAL_FIELDS_HEAVY_QUERY, $scope, $scopeid);
+            $fields = is_string($fields) ? str_replace(' ', '', explode(',', $fields)) : [];
+            $typeId = $resourceItem->getTypeId();
+            $typeInstance = $resourceItem->getTypeInstance();
+
+            $this->setFields($fields, $scope, $scopeid);
+
+            $relatedResourceItems = array();
+            if ($typeId === self::PRODUCT_TYPE_CONFIGURABLE) {
+                $relatedResourceItems = $typeInstance->getUsedProducts($resourceItem);
+            } elseif ($typeId === self::PRODUCT_TYPE_GROUPED) {
+                $relatedResourceItems = $typeInstance->getAssociatedProducts($resourceItem);
+            }
+
+            foreach ($this->getFields() as $field) {
+                if (isset($this->fieldHandlers[$field])) {
+                    $info[$this->getFieldName($field)] = $this->fieldHandlers[$field]($resourceItem);
                 }
 
-              }
+                $attributeValue = null;
+                if (isset($resourceItem[$field]) && !array_key_exists($field, $info)) {
+                    $attributeValue = $this->getAttributeValue($resourceItem, $field);
+                }
+
+                if (!isset($attributeValue) && $emulateFields) {
+                    $attributeValue = $this->getAttributeValueHeavy($resourceItem, $field);
+                }
+
+                if (!is_null($attributeValue) && !array_key_exists($field, $info)) {
+                    $info[$this->getFieldName($field)] = $attributeValue;
+                }
+
+
+                $attributeValues = $this->getInfoForChildItems($field, $emulateFields, $relatedResourceItems);
+                if (!empty($attributeValues) && !array_key_exists('child_' . $this->getFieldName($field) . 's', $info)) {
+                    $info["child_" . $this->getFieldName($field) . "s"] = $attributeValues;
+                }
             }
-          }
 
-          if ( ! empty($associatedProductsAttributeValues) && !array_key_exists('child_'.$this->getFieldName($field).'s', $info)) {
-            $associatedProductsAttributeValues = is_array($associatedProductsAttributeValues) ? $this->flattenArray($associatedProductsAttributeValues) : $associatedProductsAttributeValues;
-            $info["child_".$this->getFieldName($field)."s"] = $associatedProductsAttributeValues;
-          }
+            if (in_array($typeId, self::PRODUCT_TYPES)) {
+                $info = $this->buildProductStockPriceImage($resourceItem, $relatedResourceItems, $typeId, $emulateFields, $info);
+            }
+
+            if (isset($info['price']) && isset($info['list_price'])) {
+                $info['on_sale'] = $info['price'] < $info['list_price'];
+            }
+
+            // Fix for bundle products not reliably having implicit tax.
+            if (isset($info['tax_rate']) && $info['product_type'] == self::PRODUCT_TYPE_BUNDLE) {
+                if ($info['price'] === $info['price_excl_tax']) {
+                    $info['price_excl_tax'] = $info['price'] / (1 + ($info['tax_rate'] / 100));
+                }
+                if ($info['list_price'] === $info['list_price_excl_tax']) {
+                    $info['list_price_excl_tax'] = $info['list_price'] / (1 + ($info['tax_rate'] / 100));
+                }
+            }
+
+        } catch (Exception $e) {
+
+            $this->clerkLogger->error('Getting Response ERROR', ['error' => $e->getMessage()]);
 
         }
-      }
 
-      if(isset($info['price']) && isset($info['list_price'])){
-        $info['on_sale'] = (bool) ($info['price'] < $info['list_price']);
-      }
-
-      // Fix for bundle products not reliably having implicit tax.
-      if(isset($info['tax_rate']) && $info['product_type'] == self::PRODUCT_TYPE_BUNDLE){
-          if($info['price'] === $info['price_excl_tax']){
-            $info['price_excl_tax'] = $info['price'] / (1 + ($info['tax_rate'] / 100) );
-          }
-          if($info['list_price'] === $info['list_price_excl_tax']){
-            $info['list_price_excl_tax'] = $info['list_price'] / (1 + ($info['tax_rate'] / 100) );
-          }
-      }
-
-      return $info;
-    } catch (\Exception $e) {
-
-      $this->clerk_logger->error('Getting Response ERROR', ['error' => $e->getMessage()]);
-
-    }
-  }
-
-  /**
-   * Get list of fields
-   *
-   * @return array
-   */
-  public function getFields()
-  {
-    return $this->fields;
-  }
-
-  /**
-   * Set fields to get
-   *
-   * @param $fields
-   */
-  public function setFields($fields, $scope, $scopeid)
-  {
-    $this->fields = array_merge(['entity_id'], $this->getDefaultFields($scope, $scopeid), (array)$fields);
-  }
-
-  /**
-   * Get mapped field name
-   *
-   * @param $field
-   * @return mixed
-   */
-  protected function getFieldName($field)
-  {
-    if (isset($this->fieldMap[$field])) {
-      return $this->fieldMap[$field];
+        return $info;
     }
 
-    return $field;
-  }
+    /**
+     * Get list of fields
+     *
+     * @return array
+     */
+    public function getFields(): array
+    {
+        return $this->fields;
+    }
 
-  /**
-   * Get attribute value
-   *
-   * @param $resourceItem
-   * @param $field
-   * @return mixed
-   */
-  protected function getAttributeValue($resourceItem, $field)
-  {
-    return $resourceItem[$field];
-  }
+    /**
+     * Set fields to get
+     *
+     * @param $fields
+     * @param $scope
+     * @param $scopeid
+     */
+    public function setFields($fields, $scope, $scopeid): void
+    {
+        $this->fields = array_merge(['entity_id'], $this->getDefaultFields($scope, $scopeid), (array)$fields);
+    }
 
-  /**
-   * Add field to get
-   *
-   * @param $field
-   */
-  public function addField($field)
-  {
-    $this->fields[] = $field;
-  }
-
-  /**
-   * Add fieldhandler
-   *
-   * @param $field
-   * @param callable $handler
-   */
-  public function addFieldHandler($field, callable $handler)
-  {
-    $this->fieldHandlers[$field] = $handler;
-  }
-
-  /**
-   * Flatten array
-   *
-   * @param array $array
-   * @return arrray $array
-   */
-  public function flattenArray($array)
-  {
-    $return = [];
-    array_walk_recursive($array, function ($a) use (&$return) {
-      $return[] = $a;
-    });
-    return $return;
-  }
-
-  /**
-   * Get attribute value for product by simulating resource
-   *
-   * @param $resourceItem
-   * @param $field
-   * @return mixed
-   */
-  public function getAttributeValueHeavy($resourceItem, $field)
-  {
-    try {
-
-      $attributeResource = $resourceItem->getResource();
-
-      if(in_array($resourceItem->getTypeId(), self::PRODUCT_TYPES)){
-        $attributeResource->load($resourceItem, $resourceItem->getId(), [$field]);
-
-        $customAttribute = $resourceItem->getCustomAttribute($field);
-        if($customAttribute){
-          return $customAttribute->getValue();
+    /**
+     * Get mapped field name
+     *
+     * @param $field
+     * @return mixed
+     */
+    protected function getFieldName($field): mixed
+    {
+        if (isset($this->fieldMap[$field])) {
+            return $this->fieldMap[$field];
         }
-      }
 
-    } catch (\Exception $e) {
-
-      $this->clerk_logger->error('Getting Attribute Value Error', ['error' => $e->getMessage()]);
-
+        return $field;
     }
-  }
 
-  /**
-   * Get default fields
-   *
-   * @param string $scope
-   * @param int|string $scopeid
-   * @return array
-   */
-  abstract protected function getDefaultFields($scope, $scopeid);
+    /**
+     * Get attribute value
+     *
+     * @param $resourceItem
+     * @param $field
+     * @return mixed
+     */
+    protected function getAttributeValue($resourceItem, $field): mixed
+    {
+        return $resourceItem[$field];
+    }
+
+    /**
+     * Get attribute value for product by simulating resource
+     *
+     * @param $resourceItem
+     * @param $field
+     * @return mixed
+     * @throws FileSystemException
+     */
+    public function getAttributeValueHeavy($resourceItem, $field): mixed
+    {
+        try {
+
+            $attributeResource = $resourceItem->getResource();
+
+            if (in_array($resourceItem->getTypeId(), self::PRODUCT_TYPES)) {
+                $attributeResource->load($resourceItem, $resourceItem->getId(), [$field]);
+
+                $customAttribute = $resourceItem->getCustomAttribute($field);
+                if ($customAttribute) {
+                    return $customAttribute->getValue();
+                }
+            }
+
+        } catch (Exception $e) {
+
+            $this->clerkLogger->error('Getting Attribute Value Error', ['error' => $e->getMessage()]);
+
+        }
+        return null;
+    }
+
+    /**
+     * @throws FileSystemException
+     */
+    public function getInfoForChildItems($field, $emulatedFields, $childProducts): array
+    {
+        $childAttributeValues = array();
+        $entityField = 'entity_' . $field;
+        if (!empty($childProducts)) {
+            foreach ($childProducts as $associatedProduct) {
+                if (isset($associatedProduct[$field])) {
+                    $childAttributeValues[] = $this->getAttributeValue($associatedProduct, $field);
+                } elseif (isset($associatedProduct[$entityField])) {
+                    $childAttributeValues[] = $this->getAttributeValue($associatedProduct, $entityField);
+                }
+                if (empty($childAttributeValues) && $emulatedFields) {
+                    $attributeValue = $this->getAttributeValueHeavy($associatedProduct, $field);
+                    if (isset($attributeValue)) {
+                        $childAttributeValues[] = $attributeValue;
+                    }
+
+                }
+            }
+        }
+        if (is_array($childAttributeValues)) {
+            $childAttributeValues = $this->flattenArray($childAttributeValues);
+        }
+        return $childAttributeValues;
+    }
+
+    /**
+     * Flatten array
+     *
+     * @param array $array
+     * @return array
+     */
+    public function flattenArray(array $array): array
+    {
+        $return = [];
+        array_walk_recursive($array, function ($a) use (&$return) {
+            $return[] = $a;
+        });
+        return $return;
+    }
+
+    /**
+     * Add field to get
+     *
+     * @param $field
+     */
+    public function addField($field): void
+    {
+        $this->fields[] = $field;
+    }
+
+    /**
+     * Add fieldhandler
+     *
+     * @param $field
+     * @param callable $handler
+     */
+    public function addFieldHandler($field, callable $handler): void
+    {
+        $this->fieldHandlers[$field] = $handler;
+    }
+
+
+    /**
+     * Get default fields
+     *
+     * @param string $scope
+     * @param int|string $scopeid
+     * @return array
+     */
+    abstract protected function getDefaultFields(string $scope, int|string $scopeid): array;
 }

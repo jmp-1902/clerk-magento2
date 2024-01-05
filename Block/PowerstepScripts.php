@@ -2,27 +2,38 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ScopeInterface;
 
 class PowerstepScripts extends Template
 {
+
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function __construct(
+        Template\Context $context,
+        Settings         $settingsHelper,
+        ContextHelper    $contextHelper,
+        array            $data = []
+    )
+    {
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
+        parent::__construct($context, $data);
+    }
 
     /**
      * Determine if we should show scripts
      *
      * @return bool
      */
-    public function shouldShow()
+    public function shouldShow(): bool
     {
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-        return $this->_scopeConfig->getValue(Config::XML_PATH_POWERSTEP_TYPE, $scope, $scope_id) == Config\Source\PowerstepType::TYPE_POPUP;
+        return $this->config->get(Config::XML_PATH_POWERSTEP_TYPE, $this->ctx) == Config\Source\PowerstepType::TYPE_POPUP;
     }
 }

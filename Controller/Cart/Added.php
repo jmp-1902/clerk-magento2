@@ -2,38 +2,41 @@
 
 namespace Clerk\Clerk\Controller\Cart;
 
+use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Exception;
 use Magento\Catalog\Controller\Product;
 use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\View\Result\PageFactory;
-use Clerk\Clerk\Controller\Logger\ClerkLogger;
 
 class Added extends Product
 {
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
      * @var PageFactory
      */
-    protected $resultPageFactory;
+    protected PageFactory $resultPageFactory;
 
     /**
      * Added constructor.
      *
      * @param Context $context
      * @param PageFactory $resultPageFactory
+     * @param ClerkLogger $clerkLogger
      */
     public function __construct(
-        Context $context,
+        Context     $context,
         PageFactory $resultPageFactory,
-        ClerkLogger $clerk_logger
-        )
+        ClerkLogger $clerkLogger
+    )
     {
         $this->resultPageFactory = $resultPageFactory;
-        $this->clerk_logger = $clerk_logger;
+        $this->clerkLogger = $clerkLogger;
         parent::__construct($context);
     }
 
@@ -41,10 +44,10 @@ class Added extends Product
     /**
      * Dispatch request
      *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
-     * @throws \Magento\Framework\Exception\NotFoundException
+     * @return ResultInterface|null
+     * @throws FileSystemException
      */
-    public function execute()
+    public function execute(): ?ResultInterface
     {
         try {
 
@@ -53,15 +56,16 @@ class Added extends Product
             if (!$product) {
                 //Redirect to frontpage
                 $this->_redirect('/');
-                return;
+                return null;
             }
 
             return $this->resultPageFactory->create();
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Cart execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Cart execute ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 }

@@ -2,80 +2,74 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
+use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductRepositoryInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Catalog\Block\Product\AbstractProduct;
-use Magento\Catalog\Block\Product\Context;
 use Magento\Catalog\Helper\Image;
-use Magento\Catalog\Model\Product;
 use Magento\Checkout\Helper\Cart;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\View\Element\Template;
-use function GuzzleHttp\Psr7\str;
+use Magento\Framework\View\Element\Template\Context;
 
 class PowerstepPopup extends Template
 {
     /**
      * @var Session
      */
-    protected $checkoutSession;
+    protected Session $checkoutSession;
 
     /**
      * @var ProductRepositoryInterface
      */
-    protected $productRepository;
+    protected ProductRepositoryInterface $productRepository;
 
     /**
      * @var Cart
      */
-    protected $cartHelper;
+    protected Cart $cartHelper;
 
     /**
      * @var Image
      */
-    protected $imageHelper;
+    protected Image $imageHelper;
 
 
     /**
      * PowerstepPopup constructor.
      *
-     * @param Template\Context $context
-     * @param array $data
+     * @param Context $context
      * @param Session $checkoutSession
      * @param ProductRepositoryInterface $productRepository
+     * @param Cart $cartHelper
+     * @param Image $imageHelper
+     * @param Settings $settingsHelper
+     * @param ContextHelper $contextHelper
+     * @param array $data
+     * @throws NoSuchEntityException
      */
     public function __construct(
-        Template\Context $context,
-        Session $checkoutSession,
+        Template\Context           $context,
+        Session                    $checkoutSession,
         ProductRepositoryInterface $productRepository,
-        Cart $cartHelper,
-        Image $imageHelper,
-        array $data = []
-    ) {
+        Cart                       $cartHelper,
+        Image                      $imageHelper,
+        Settings                   $settingsHelper,
+        ContextHelper              $contextHelper,
+        array                      $data = []
+    )
+    {
         parent::__construct($context, $data);
         $this->checkoutSession = $checkoutSession;
         $this->productRepository = $productRepository;
         $this->cartHelper = $cartHelper;
         $this->imageHelper = $imageHelper;
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
         $this->setTemplate('powerstep_popup.phtml');
-    }
-
-    /**
-     * Get product added
-     *
-     * @return Product
-     */
-    public function getProduct()
-    {
-        $productId = $this->checkoutSession->getClerkProductId();
-
-        try {
-            return $this->productRepository->getById($productId);
-        } catch (NoSuchEntityException $e) {
-            return false;
-        }
     }
 
     /**
@@ -83,7 +77,7 @@ class PowerstepPopup extends Template
      *
      * @return string
      */
-    public function getHeaderText()
+    public function getHeaderText(): string
     {
         if ($product = $this->getProduct()) {
             return __(
@@ -95,12 +89,23 @@ class PowerstepPopup extends Template
         return "failed to load product with id" . $this->checkoutSession->getClerkProductId();
     }
 
+    public function getProduct(): false|ProductInterface
+    {
+        $productId = $this->checkoutSession->getClerkProductId();
+
+        try {
+            return $this->productRepository->getById($productId);
+        } catch (NoSuchEntityException $e) {
+            return false;
+        }
+    }
+
     /**
      * Get Cart URL
      *
      * @return string
      */
-    public function getCartUrl()
+    public function getCartUrl(): string
     {
         return $this->cartHelper->getCartUrl();
     }
@@ -110,11 +115,14 @@ class PowerstepPopup extends Template
      *
      * @return string
      */
-    public function getImageUrl()
+    public function getImageUrl(): string
     {
         $product = $this->getProduct();
+        if (!$product) {
+            return '';
+        }
 
-        return $this->imageHelper->init($product, 'product_page_image_small')
+        return $this->imageHelper->init(product: $product, imageId: 'product_page_image_small')
             ->setImageFile($product->getImage())
             ->getUrl();
     }
@@ -122,9 +130,9 @@ class PowerstepPopup extends Template
     /**
      * Determine if we should show popup block
      *
-     * @return mixed
+     * @return bool
      */
-    public function shouldShow()
+    public function shouldShow(): bool
     {
         $showPowerstep = ($this->getRequest()->getParam('isAjax')) || ($this->checkoutSession->getClerkShowPowerstep(true));
 
@@ -140,23 +148,14 @@ class PowerstepPopup extends Template
      *
      * @return mixed
      */
-    public function isAjax()
+    public function isAjax(): mixed
     {
         return $this->getRequest()->getParam('isAjax');
     }
 
     public function getExcludeState()
     {
-
-        if ($this->_scopeConfig->getValue('general/single_store_mode/enabled') == 1) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        return $this->_scopeConfig->getValue(Config::XML_PATH_POWERSTEP_FILTER_DUPLICATES, $scope, $scope_id);
+        return $this->config->get(Config::XML_PATH_POWERSTEP_FILTER_DUPLICATES, $this->ctx);
     }
 
     /**
@@ -164,44 +163,17 @@ class PowerstepPopup extends Template
      *
      * @return array
      */
-    public function getTemplates()
+    public function getTemplates(): array
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        $template_contents = $this->_scopeConfig->getValue(Config::XML_PATH_POWERSTEP_TEMPLATES, $scope, $scope_id);
-        if ($template_contents) {
-            $template_contents = explode(',', $template_contents);
-        } else {
-            $template_contents = [0 => ''];
-        }
+        $templates = array();
+        $template_contents = $this->config->get(Config::XML_PATH_POWERSTEP_TEMPLATES, $this->ctx);
+        $template_contents = $template_contents ? explode(',', $template_contents) : [0 => ''];
 
         foreach ($template_contents as $key => $template) {
-
             $templates[$key] = str_replace(' ', '', $template);
-
         }
 
-        return (array) $templates;
+        return $templates;
     }
 
-    public function generateRandomString($length = 25)
-    {
-
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-        $randomString = '';
-
-        for ($i = 0; $i < $length; $i++) {
-            $randomString .= $characters[rand(0, $charactersLength - 1)];
-        }
-
-        return $randomString;
-    }
 }

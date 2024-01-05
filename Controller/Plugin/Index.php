@@ -9,6 +9,7 @@ use Exception;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Store\Model\StoreManagerInterface;
@@ -24,11 +25,14 @@ class Index extends AbstractAction
      * Version controller constructor.
      *
      * @param Context $context
+     * @param StoreManagerInterface $storeManager
      * @param ScopeConfigInterface $scopeConfig
      * @param LoggerInterface $logger
      * @param ModuleList $moduleList
+     * @param ClerkLogger $clerkLogger
      * @param ProductMetadataInterface $productMetadata
      * @param RequestApi $requestApi
+     * @param Api $api
      */
     public function __construct(
         Context                  $context,
@@ -59,6 +63,7 @@ class Index extends AbstractAction
 
     /**
      * Execute request
+     * @throws FileSystemException
      */
     public function execute(): void
     {

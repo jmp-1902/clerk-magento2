@@ -2,103 +2,105 @@
 
 namespace Clerk\Clerk\Controller\Adminhtml\Widget;
 
+use Clerk\Clerk\Controller\Logger\ClerkLogger;
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config\Source\Content;
+use Exception;
 use Magento\Backend\App\Action;
-use Magento\Framework\App\ResponseInterface;
-use Magento\Framework\Data\Form;
-use Magento\Framework\Data\FormFactory;
-use Magento\Framework\Option\ArrayPool;
-use Clerk\Clerk\Controller\Logger\ClerkLogger;
-
-use Magento\Framework\Data\Form\Element\Select as FormSelect;
-use Magento\Backend\Block\Widget\Form\Renderer\Fieldset\Element as FieldElement;
+use Magento\Backend\App\Action\Context;
 use Magento\Backend\Block\Widget\Form\Renderer\Fieldset as FieldSet;
+use Magento\Backend\Block\Widget\Form\Renderer\Fieldset\Element as FieldElement;
 use Magento\Catalog\Block\Adminhtml\Product\Widget\Chooser as WidgetChooser;
+use Magento\Framework\Data\Form\Element\Select as FormSelect;
+use Magento\Framework\Data\FormFactory;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Option\ArrayPool;
 
 class Index extends Action
 {
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
      * @var FieldSet
      */
-    protected $_fieldSet;
+    protected FieldSet $fieldSet;
 
     /**
      * @var WidgetChooser
      */
-    protected $_widgetChooser;
+    protected WidgetChooser $widgetChooser;
 
     /**
      * @var FieldElement
      */
-    protected $_fieldElement;
+    protected FieldElement $fieldElement;
 
     /**
      * @var FormSelect
      */
-    protected $_formSelect;
+    protected FormSelect $formSelect;
 
     /**
      * @var Api
      */
-    protected $api;
+    protected Api $api;
 
     /**
      * @var FormFactory
      */
-    protected $formFactory;
+    protected FormFactory $formFactory;
 
     /**
      * @var ArrayPool
      */
-    protected $sourceModelPool;
+    protected ArrayPool $sourceModelPool;
 
     /**
      * Index constructor.
      *
-     * @param Action\Context $context
+     * @param Context $context
      * @param Api $api
      * @param FormFactory $formFactory
-     * @param ArrayPool $sourceModelPool
      * @param FormSelect $formSelect
      * @param FieldElement $fieldElement
      * @param FieldSet $fieldSet
      * @param WidgetChooser $widgetChooser
+     * @param ArrayPool $sourceModelPool
+     * @param ClerkLogger $clerk_logger
      */
     public function __construct(
         Action\Context $context,
-        Api $api,
-        FormFactory $formFactory,
-        FormSelect $formSelect,
-        FieldElement $fieldElement,
-        FieldSet $fieldSet,
-        WidgetChooser $widgetChooser,
-        ArrayPool $sourceModelPool,
-        ClerkLogger $clerk_logger
-        )
+        Api            $api,
+        FormFactory    $formFactory,
+        FormSelect     $formSelect,
+        FieldElement   $fieldElement,
+        FieldSet       $fieldSet,
+        WidgetChooser  $widgetChooser,
+        ArrayPool      $sourceModelPool,
+        ClerkLogger    $clerk_logger
+    )
     {
         $this->api = $api;
         $this->formFactory = $formFactory;
         $this->sourceModelPool = $sourceModelPool;
-        $this->clerk_logger = $clerk_logger;
-        $this->_formSelect = $formSelect;
-        $this->_fieldElement = $fieldElement;
-        $this->_fieldSet = $fieldSet;
-        $this->_widgetChooser = $widgetChooser;
+        $this->clerkLogger = $clerk_logger;
+        $this->formSelect = $formSelect;
+        $this->fieldElement = $fieldElement;
+        $this->fieldSet = $fieldSet;
+        $this->widgetChooser = $widgetChooser;
 
         parent::__construct($context);
     }
 
     /**
-     * @return ResponseInterface|\Magento\Framework\Controller\ResultInterface|void
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @return void
+     * @throws LocalizedException
      */
-    public function execute()
+    public function execute(): void
     {
         try {
 
@@ -114,19 +116,21 @@ class Index extends Action
                 default:
                     $this->getInvalidResponse();
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Widget execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Widget execute ERROR', ['error' => $e->getMessage()]);
 
         }
     }
 
-    public function getContentResponse()
+    /**
+     * @throws FileSystemException
+     */
+    public function getContentResponse(): void
     {
         try {
-            /** @var Form $form */
             $form = $this->formFactory->create();
-            $select = $this->_formSelect;
+            $select = $this->formSelect;
             $select->setHtmlId('clerk_widget_content');
             $select->setId('clerk_widget_content');
             $select->setCssClass('clerk_content_select');
@@ -135,7 +139,7 @@ class Index extends Action
             $select->setLabel(__('Content'));
             $select->setForm($form);
 
-            $renderer = $this->_fieldElement;
+            $renderer = $this->fieldElement;
 
             $this->getResponse()
                 ->setHttpResponseCode(200)
@@ -147,14 +151,17 @@ class Index extends Action
                     ])
                 );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Widget getContentResponse ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Widget getContentResponse ERROR', ['error' => $e->getMessage()]);
 
         }
     }
 
-    public function getParametersResponse()
+    /**
+     * @throws FileSystemException
+     */
+    public function getParametersResponse(): void
     {
         try {
 
@@ -166,9 +173,8 @@ class Index extends Action
             $html = '';
 
             if (!!array_intersect(['products', 'category'], $parameters)) {
-                /** @var Form $form */
                 $form = $this->formFactory->create();
-                $form->setFieldsetRenderer($this->_fieldSet);
+                $form->setFieldsetRenderer($this->fieldSet);
                 $form->setUseContainer(false);
 
                 $fieldset = $form->addFieldset('clerk_widget_options', [
@@ -183,7 +189,7 @@ class Index extends Action
                         'label' => __('Product')
                     ]);
 
-                    $chooser = $this->_widgetChooser;
+                    $chooser = $this->widgetChooser;
                     $chooser->setHtmlId('clerk_widget_content');
                     $chooser->setConfig([
                         'button' => [
@@ -208,7 +214,7 @@ class Index extends Action
                         'label' => __('Category')
                     ]);
 
-                    $chooser = $this->_widgetChooser;
+                    $chooser = $this->widgetChooser;
                     $chooser->setHtmlId('clerk_widget_content');
                     $chooser->setConfig([
                         'button' => [
@@ -239,14 +245,18 @@ class Index extends Action
                     ])
                 );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Widget getParametersResponse ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Widget getParametersResponse ERROR', ['error' => $e->getMessage()]);
 
         }
     }
 
-    public function getInvalidResponse()
+    /**
+     * @return void
+     * @throws FileSystemException
+     */
+    public function getInvalidResponse(): void
     {
         try {
 
@@ -260,9 +270,9 @@ class Index extends Action
                     ])
                 );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Widget getInvalidResponse ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Widget getInvalidResponse ERROR', ['error' => $e->getMessage()]);
 
         }
     }

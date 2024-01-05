@@ -2,53 +2,61 @@
 
 namespace Clerk\Clerk\Controller\Adminhtml\Dashboard;
 
-use Magento\Backend\App\Action;
-use Magento\Framework\App\ResponseInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Exception;
+use Magento\Backend\App\Action;
+use Magento\Backend\App\Action\Context;
+use Magento\Backend\Model\View\Result\Page;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\View\Result\PageFactory;
 
 class Recommendations extends Action
 {
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerkLogger;
 
     /**
-     * @var \Magento\Framework\View\Result\PageFactory
+     * @var PageFactory
      */
-    protected $resultPageFactory;
+    protected PageFactory $resultPageFactory;
 
     /**
-     * @param \Magento\Backend\App\Action\Context $context
-     * @param \Magento\Framework\View\Result\PageFactory $resultPageFactory
+     * @param Context $context
+     * @param PageFactory $resultPageFactory
+     * @param ClerkLogger $clerkLogger
      */
     public function __construct(
-        \Magento\Backend\App\Action\Context $context,
-        \Magento\Framework\View\Result\PageFactory $resultPageFactory,
-        ClerkLogger $clerk_logger
-    ) {
+        Context     $context,
+        PageFactory $resultPageFactory,
+        ClerkLogger $clerkLogger
+    )
+    {
         parent::__construct($context);
         $this->resultPageFactory = $resultPageFactory;
-        $this->clerk_logger = $clerk_logger;
+        $this->clerkLogger = $clerkLogger;
     }
 
     /**
-     * @return \Magento\Backend\Model\View\Result\Page
+     * @return Page|null
+     * @throws FileSystemException
      */
-    public function execute()
+    public function execute(): ?Page
     {
         try {
-            /** @var \Magento\Backend\Model\View\Result\Page $resultPage */
+            /** @var Page $resultPage */
             $resultPage = $this->resultPageFactory->create();
             $resultPage->setActiveMenu('Clerk_Clerk::report_clerkroot_recommendations_insights');
             $resultPage->addBreadcrumb(__('Clerk.io - Recommendations Insights'), __('Clerk.io - Recommendations Insights'));
             $resultPage->getConfig()->getTitle()->prepend(__('Clerk.io - Recommendations Insights'));
 
             return $resultPage;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
-            $this->clerk_logger->error('Recommendations execute ERROR', ['error' => $e->getMessage()]);
+            $this->clerkLogger->error('Recommendations execute ERROR', ['error' => $e->getMessage()]);
 
         }
+        return null;
     }
 }

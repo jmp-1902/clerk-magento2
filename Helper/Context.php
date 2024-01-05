@@ -74,6 +74,27 @@ class Context
     }
 
     /**
+     * @return int
+     * @throws NoSuchEntityException
+     */
+    public function getStoreIdFromContext(): int
+    {
+        $requestParams = $this->requestInterface->getParams();
+        if (array_key_exists('scope_id', $requestParams)) {
+            return (int)$requestParams['scope_id'];
+        }
+        return $this->storeManager->getStore()->getId();
+    }
+
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function getStoreNameFromContext(): string
+    {
+        return $this->getStoreFromContext()->getName();
+    }
+
+    /**
      * @return StoreInterface
      * @throws NoSuchEntityException
      */
@@ -86,16 +107,13 @@ class Context
         return $this->storeManager->getStore();
     }
 
+
     /**
-     * @return int
+     * @return string
      * @throws NoSuchEntityException
      */
-    public function getStoreIdFromContext(): int
+    public function getShopBaseDomainUrl(): string
     {
-        $requestParams = $this->requestInterface->getParams();
-        if (array_key_exists('scope_id', $requestParams)) {
-            return (int)$requestParams['scope_id'];
-        }
-        return $this->storeManager->getStore()->getId();
+        return $this->storeManager->getStore()->getBaseUrl();
     }
 }

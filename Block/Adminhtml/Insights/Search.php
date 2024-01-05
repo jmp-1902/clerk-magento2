@@ -6,5 +6,5 @@ use Clerk\Clerk\Block\Adminhtml\Dashboard;
 
 class Search extends Dashboard
 {
-    protected $type = 'search';
+    protected string $type = 'search';
 }

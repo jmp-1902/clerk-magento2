@@ -4,20 +4,25 @@ namespace Clerk\Clerk\Block\Adminhtml;
 
 use Clerk\Clerk\Model\Config;
 use Magento\Backend\Block\Template;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Api\StoreRepositoryInterface;
 use Magento\Store\Model\ScopeInterface;
 
 class Dashboard extends Template
 {
     /** @var string */
-    protected $type = 'dashboard';
+    protected string $type = 'dashboard';
 
     /**
      * @var StoreRepositoryInterface
      */
-    private $storeRepository;
+    private StoreRepositoryInterface $storeRepository;
 
-    public function __construct(Template\Context $context, StoreRepositoryInterface $storeRepository, array $data = [])
+    public function __construct(
+        Template\Context         $context,
+        StoreRepositoryInterface $storeRepository,
+        array                    $data = [])
     {
         $this->storeRepository = $storeRepository;
         parent::__construct($context, $data);
@@ -26,11 +31,12 @@ class Dashboard extends Template
     /**
      * Get iframe embed url
      *
-     * @return string
+     * @return false|string
+     * @throws NoSuchEntityException
      */
-    public function getEmbedUrl()
+    public function getEmbedUrl(): false|string
     {
-        if (! $this->getStoreId()) {
+        if (!$this->getStoreId()) {
             return false;
         }
 
@@ -56,13 +62,22 @@ class Dashboard extends Template
     }
 
     /**
-     * Get url for clerk system configuration
+     * Get Store ID
      *
-     * @return string
+     * @return mixed
      */
-    public function getConfigureUrl()
+    public function getStoreId(): mixed
     {
-        return $this->getUrl('adminhtml/system_config/edit/section/clerk');
+        return $this->getRequest()->getParam('store');
+    }
+
+    /**
+     * Get current store
+     * @throws NoSuchEntityException
+     */
+    public function getStore(): StoreInterface
+    {
+        return $this->storeRepository->getById($this->getStoreId());
     }
 
     /**
@@ -71,26 +86,18 @@ class Dashboard extends Template
      * @param $publicKey
      * @return string
      */
-    protected function getStorePart($publicKey)
+    protected function getStorePart($publicKey): string
     {
         return substr($publicKey, 0, 8);
     }
 
     /**
-     * Get current store
-     */
-    public function getStore()
-    {
-        return $this->storeRepository->getById($this->getStoreId());
-    }
-
-    /**
-     * Get Store Id
+     * Get url for clerk system configuration
      *
-     * @return mixed
+     * @return string
      */
-    public function getStoreId()
+    public function getConfigureUrl(): string
     {
-        return $this->getRequest()->getParam('store');
+        return $this->getUrl('adminhtml/system_config/edit/section/clerk');
     }
 }

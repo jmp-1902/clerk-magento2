@@ -27,12 +27,12 @@ class Index extends AbstractAction
     /**
      * @var SubscriberFactory
      */
-    protected $_subscriberFactory;
+    protected $subscriberFactory;
 
     /**
      * @var SubscriberCollectionFactory
      */
-    protected $_subscriberCollectionFactory;
+    protected SubscriberCollectionFactory $subscriberCollectionFactory;
 
     /**
      * @var CollectionFactory
@@ -47,7 +47,7 @@ class Index extends AbstractAction
     /**
      * @var CustomerMetadataInterface
      */
-    protected $_customerMetadata;
+    protected $customerMetadata;
 
     /**
      * @var ProductMetadataInterface
@@ -87,10 +87,10 @@ class Index extends AbstractAction
     {
         $this->collectionFactory = $customerCollectionFactory;
         $this->clerkLogger = $clerkLogger;
-        $this->_customerMetadata = $customerMetadata;
+        $this->customerMetadata = $customerMetadata;
         $this->storeManager = $storeManager;
-        $this->_subscriberFactory = $subscriberFactory;
-        $this->_subscriberCollectionFactory = $subscriberCollectionFactory;
+        $this->subscriberFactory = $subscriberFactory;
+        $this->subscriberCollectionFactory = $subscriberCollectionFactory;
 
         parent::__construct(
             $context,
@@ -128,7 +128,7 @@ class Index extends AbstractAction
 
                 $response = $this->getCustomerCollection($this->page, $this->limit, $this->scopeid);
 
-                $subscriberInstance = $this->_subscriberFactory->create();
+                $subscriberInstance = $this->subscriberFactory->create();
 
                 foreach ($response->getData() as $customer) {
 
@@ -231,13 +231,13 @@ class Index extends AbstractAction
      */
     public function getCustomerGender($GenderCode): string
     {
-        return $this->_customerMetadata->getAttributeMetadata('gender')->getOptions()[$GenderCode]->getLabel();
+        return $this->customerMetadata->getAttributeMetadata('gender')->getOptions()[$GenderCode]->getLabel();
     }
 
-    public function getSubscriberCollection($page, $limit, $storeid)
+    public function getSubscriberCollection($page, $limit, $store_id)
     {
-        $subscriberCollection = $this->_subscriberCollectionFactory->create();
-        $subscriberCollection->addFilter('store_id', $storeid);
+        $subscriberCollection = $this->subscriberCollectionFactory->create();
+        $subscriberCollection->addFilter('store_id', $store_id);
         $subscriberCollection->addFilter('customer_id', 0);
         $subscriberCollection->setPageSize($limit);
         $subscriberCollection->setCurPage($page);

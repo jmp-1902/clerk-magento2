@@ -11,6 +11,7 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
@@ -47,9 +48,14 @@ class Index extends AbstractAction
      * @param Context $context
      * @param ScopeConfigInterface $scopeConfig
      * @param CollectionFactory $orderCollectionFactory
+     * @param StoreManagerInterface $storeManager
+     * @param LoggerInterface $logger
+     * @param ModuleList $moduleList
+     * @param ClerkLogger $clerkLogger
      * @param ProductMetadataInterface $productMetadata
      * @param RequestApi $requestApi
      * @param Api $api
+     * @throws FileSystemException
      */
     public function __construct(
         Context                  $context,
@@ -84,8 +90,9 @@ class Index extends AbstractAction
 
     /**
      * Add field handlers
+     * @throws FileSystemException
      */
-    protected function addFieldHandlers()
+    protected function addFieldHandlers(): void
     {
 
         try {
@@ -131,6 +138,7 @@ class Index extends AbstractAction
 
     /**
      * Execute request
+     * @throws FileSystemException
      */
     public function execute(): void
     {
@@ -164,6 +172,7 @@ class Index extends AbstractAction
 
     /**
      * Parse request arguments
+     * @throws FileSystemException
      */
     protected function getArguments(RequestInterface $request): void
     {

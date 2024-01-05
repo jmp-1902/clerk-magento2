@@ -14,12 +14,12 @@ class information extends Field
     /**
      * @var ModuleListInterface
      */
-    protected $moduleList;
+    protected ModuleListInterface $moduleList;
 
     /**
      * @var ManagerInterface
      */
-    protected $messageManager;
+    protected ManagerInterface $messageManager;
 
 
     /**
@@ -27,6 +27,7 @@ class information extends Field
      *
      * @param Context $context
      * @param ModuleListInterface $moduleList
+     * @param ManagerInterface $messageManager
      * @param ScopeConfigInterface $ScopeConfigInterface
      * @param array $data
      */
@@ -50,7 +51,7 @@ class information extends Field
      * @param AbstractElement $element
      * @return string
      */
-    public function render(AbstractElement $element)
+    public function render(AbstractElement $element): string
     {
         //Hide scope label and inheritance checkbox
         $element->setCanUseWebsiteValue(false);
@@ -62,7 +63,6 @@ class information extends Field
         $urlParts = explode("/", $currentUrl);
 
         $scope = 'default';
-
         if (in_array("store", $urlParts)) {
             $scope = 'store';
         }
@@ -73,15 +73,12 @@ class information extends Field
 
         $html = '';
 
-        $singlestore = $this->ScopeConfigInterface->getValue('general/single_store_mode/enabled');
+        $is_single_store = $this->ScopeConfigInterface->getValue('general/single_store_mode/enabled');
 
-        if ($singlestore !== '1' && $scope === 'default') {
+        if ($is_single_store !== '1' && $scope === 'default') {
             $html = 'Your current scope is "Default Settings", to configure Clerk settings please change scope to "website" or "store.';
-            return $this->_decorateRowHtml($element, $html);
-        } else {
-
-            return $this->_decorateRowHtml($element, $html);
         }
+        return $this->_decorateRowHtml($element, $html);
     }
 
     /**
@@ -91,7 +88,7 @@ class information extends Field
      * @param string $html
      * @return string
      */
-    protected function _decorateRowHtml(AbstractElement $element, $html)
+    protected function _decorateRowHtml(AbstractElement $element, $html): string
     {
         return '<tr id="row_' . $element->getHtmlId() . '">' . $html . '</tr>';
     }

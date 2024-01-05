@@ -13,6 +13,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\Config\Storage\WriterInterface;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\Encryption\EncryptorInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Module\ModuleList;
 use Magento\Framework\Webapi\Rest\Request as RequestApi;
 use Magento\Store\Model\StoreManagerInterface;
@@ -23,7 +24,7 @@ class Index extends AbstractAction
     /**
      * @var EncryptorInterface
      */
-    protected $encryptor;
+    protected EncryptorInterface $encryptor;
 
     /**
      * @var ClerkLogger
@@ -43,12 +44,12 @@ class Index extends AbstractAction
     /**
      * @var WriterInterface
      */
-    protected $configWriter;
+    protected WriterInterface $configWriter;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $ScopeConfigInterface;
+    protected ScopeConfigInterface $ScopeConfigInterface;
 
     /**
      * @var ProductMetadataInterface
@@ -58,15 +59,18 @@ class Index extends AbstractAction
     /**
      * @var CacheType
      */
-    protected $_cacheType;
+    protected CacheType $cacheType;
 
     /**
      * Version controller constructor.
      *
      * @param Context $context
-     * @param ScopeConfigInterface $scopeConfig
+     * @param ScopeConfigInterface $ScopeConfigInterface
      * @param LoggerInterface $logger
      * @param ModuleList $moduleList
+     * @param StoreManagerInterface $storeManager
+     * @param ClerkLogger $clerkLogger
+     * @param WriterInterface $configWriter
      * @param ProductMetadataInterface $productMetadata
      * @param CacheType $cacheType
      * @param RequestApi $request_api
@@ -89,8 +93,8 @@ class Index extends AbstractAction
     )
     {
         $this->clerkLogger = $clerkLogger;
-        $this->config_writer = $configWriter;
-        $this->_cacheType = $cacheType;
+        $this->configWriter = $configWriter;
+        $this->cacheType = $cacheType;
         $this->encryptor = $encryptor;
         parent::__construct(
             $context,
@@ -107,6 +111,7 @@ class Index extends AbstractAction
 
     /**
      * Execute request
+     * @throws FileSystemException
      */
     public function execute(): void
     {
@@ -133,8 +138,8 @@ class Index extends AbstractAction
                 if (array_key_exists('clerk_private_key', $body_array)) {
                     $encryptedValue = $this->encryptor->encrypt($body_array['clerk_private_key']);
 
-                    $this->config_writer->save(Config::XML_PATH_PRIVATE_KEY, $encryptedValue, $scope, $scopeId);
-                    $this->_cacheType->cleanType('config');
+                    $this->configWriter->save(Config::XML_PATH_PRIVATE_KEY, $encryptedValue, $scope, $scopeId);
+                    $this->cacheType->cleanType('config');
 
                     $response = [
                         'status' => 'ok',

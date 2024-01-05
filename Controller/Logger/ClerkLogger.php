@@ -2,17 +2,19 @@
 
 namespace Clerk\Clerk\Controller\Logger;
 
+use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use DateTime;
+use Exception;
 use Magento\Framework\App\Config\ConfigResource\ConfigInterface;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\Filesystem\DirectoryList;
-use Magento\Store\Model\Store;
-use Magento\Framework\Stdlib\DateTime\TimezoneInterface;
-use Magento\Framework\Module\ModuleList;
-use Magento\Store\Model\ScopeInterface;
-
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Filesystem\DirectoryList;
+use Magento\Framework\Module\ModuleList;
+use Magento\Framework\Stdlib\DateTime\TimezoneInterface;
+use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\Store;
 
 class ClerkLogger
 {
@@ -20,96 +22,99 @@ class ClerkLogger
     /**
      * @var ProductMetadataInterface
      */
-    protected $_product_metadata;
+    protected ProductMetadataInterface $productMetadata;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
     /**
      * @var
      */
-    protected $configWriter;
+    protected ConfigInterface $configWriter;
     /**
      * @var DirectoryList
      */
-    protected $_dir;
+    protected DirectoryList $directory;
+    protected ModuleList $moduleList;
     /**
      * @var string
      */
-    private $Platform;
+    protected string $version;
+    /**
+     * @var Api
+     */
+    protected Api $api;
+    /**
+     * @var string
+     */
+    private string $platform;
     /**
      * @var mixed
      */
-    private $Key;
+    private mixed $publicKey;
     /**
      * @var DateTime
      */
-    private $Date;
+    private DateTime $date;
     /**
-     * @var
+     * @var bool
      */
-    private $Enabled;
+    private bool $enabled;
     /**
-     * @var
+     * @var int
      */
-    private $Time;
-    /**
-     * @var mixed
-     */
-    private $Log_level;
+    private int $timeStamp;
     /**
      * @var mixed
      */
-    private $Log_to;
-
-    protected $moduleList;
+    private mixed $logLevel;
+    /**
+     * @var mixed
+     */
+    private mixed $logTo;
 
     /**
      * ClerkLogger constructor.
      * @param ScopeConfigInterface $scopeConfig
-     * @param DirectoryList $dir
-     * @param LoggerInterface $logger
+     * @param DirectoryList $directory
      * @param TimezoneInterface $date
      * @param ConfigInterface $configWriter
-     * @param ProductMetadataInterface $product_metadata
-     * @throws \Magento\Framework\Exception\FileSystemException
+     * @param ModuleList $moduleList
+     * @param ProductMetadataInterface $productMetadata
+     * @param Api $api
      */
     function __construct(
-        ScopeConfigInterface $scopeConfig,
-        DirectoryList $dir,
-        TimezoneInterface $date,
-        ConfigInterface $configWriter,
-        ModuleList $moduleList,
-        ProductMetadataInterface $product_metadata
-        )
+        ScopeConfigInterface     $scopeConfig,
+        DirectoryList            $directory,
+        TimezoneInterface        $date,
+        ConfigInterface          $configWriter,
+        ModuleList               $moduleList,
+        ProductMetadataInterface $productMetadata,
+        Api                      $api
+    )
     {
 
         $this->configWriter = $configWriter;
-        $this->_dir = $dir;
+        $this->directory = $directory;
         $this->scopeConfig = $scopeConfig;
-        $this->Platform = 'Magento 2';
-        $this->Key = $this->scopeConfig->getValue(Config::XML_PATH_PUBLIC_KEY, ScopeInterface::SCOPE_STORE);
-        $this->Date = $date->date();
-        $this->Time = $date->scopeTimeStamp();
-        $this->Log_level = $this->scopeConfig->getValue(Config::XML_PATH_LOG_LEVEL, ScopeInterface::SCOPE_STORE);
-        $this->Log_to = $this->scopeConfig->getValue(Config::XML_PATH_LOG_TO, ScopeInterface::SCOPE_STORE);
-        $this->Enabled = $this->scopeConfig->getValue(Config::XML_PATH_LOG_ENABLED, ScopeInterface::SCOPE_STORE);
+        $this->platform = 'Magento 2';
+        $this->publicKey = $this->scopeConfig->getValue(Config::XML_PATH_PUBLIC_KEY, ScopeInterface::SCOPE_STORE);
+        $this->date = $date->date();
+        $this->timeStamp = $date->scopeTimeStamp();
+        $this->logLevel = $this->scopeConfig->getValue(Config::XML_PATH_LOG_LEVEL, ScopeInterface::SCOPE_STORE);
+        $this->logTo = $this->scopeConfig->getValue(Config::XML_PATH_LOG_TO, ScopeInterface::SCOPE_STORE);
+        $this->enabled = (bool)$this->scopeConfig->getValue(Config::XML_PATH_LOG_ENABLED, ScopeInterface::SCOPE_STORE);
         $this->moduleList = $moduleList;
-        $this->_product_metadata = $product_metadata;
-        $this->InitializeSearchPowerstep();
+        $this->productMetadata = $productMetadata;
+        $this->version = $this->productMetadata->getVersion();
+        $this->api = $api;
+        $this->initSettings();
     }
 
-    /**
-     * @throws \Magento\Framework\Exception\FileSystemException
-     */
-    public function InitializeSearchPowerstep()
+    public function initSettings(): void
     {
-
-        if ($this->Enabled !== '1') {
-
-
-        } else {
+        if ($this->enabled) {
 
             $realtimeupdates_initiated = $this->scopeConfig->getValue('clerk/log/realtimeupdatesfirst');
 
@@ -301,245 +306,122 @@ class ClerkLogger
     }
 
     /**
-     * @param $Message
-     * @param $Metadata
-     * @throws \Magento\Framework\Exception\FileSystemException
+     * @param $message
+     * @param $metaData
+     * @throws Exception
      */
-    public function log($Message, $Metadata)
+    public function log($message, $metaData): void
     {
-        $version = $this->_product_metadata->getVersion();
-        header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
-        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
+        header('User-Agent: ClerkExtensionBot Magento 2/v' . $this->version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
+        $metaData = $this->getMetadata($metaData);
 
-            $Metadata['uri'] = "https://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
-        } elseif (isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
-
-            $Metadata['uri'] = "http://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
-        }
-
-        if ($_GET) {
-
-            $Metadata['params'] = $_GET;
-
-        } elseif ($_POST) {
-
-            $Metadata['params'] = $_POST;
-
-        }
-
-        $Type = 'log';
-
-        if ($this->Enabled !== '1') {
-
-        } else {
-
-
-            if ($this->Log_level !== 'all') {
-
-            } else {
-
-                if ($this->Log_to == 'collect') {
-
-                    $Endpoint = 'https://api.clerk.io/v2/log/debug';
-
-                    $data_string = json_encode([
-                        'key' =>$this->Key,
-                        'source' => $this->Platform,
-                        'time' => $this->Time,
-                        'type' => $Type,
-                        'message' => $Message,
-                        'metadata' => $Metadata]);
-
-                    $curl = curl_init();
-
-                    curl_setopt($curl, CURLOPT_URL, $Endpoint);
-                    curl_setopt($curl, CURLOPT_POST, true);
-                    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($curl, CURLOPT_POSTFIELDS, $data_string);
-
-                    $response = json_decode(curl_exec($curl));
-
-                    if ($response->status == 'error') {
-
-                        $this->LogToFile($Message, $Metadata);
-
-                    }
-
-                    curl_close($curl);
-
-                } elseif ($this->Log_to == 'file') {
-
-                    $this->LogToFile($Message, $Metadata);
-
+        $errorType = 'log';
+        if ($this->enabled) {
+            if ($this->logLevel === 'all') {
+                if ($this->logTo == 'collect') {
+                    $this->logToRemote($errorType, $message, $metaData);
+                } elseif ($this->logTo == 'file') {
+                    $this->logToFile($message, $metaData);
                 }
             }
         }
     }
 
     /**
-     * @param $Message
-     * @param $Metadata
-     * @throws \Magento\Framework\Exception\FileSystemException
+     * @param $metaData
+     * @return mixed
      */
-    public function error($Message, $Metadata)
+    public function getMetadata($metaData): array
     {
-        $version = $this->_product_metadata->getVersion();
-        header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
-        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
-
-            $Metadata['uri'] = "https://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
-        } elseif (isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
-
-            $Metadata['uri'] = "http://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
+        if (isset($_SERVER['HTTPS'], $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']) && $_SERVER['HTTPS'] === 'on') {
+            $metaData['uri'] = "https://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+        } elseif (isset($_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI'])) {
+            $metaData['uri'] = sprintf("http://%s%s", $_SERVER['HTTP_HOST'], $_SERVER['REQUEST_URI']);
         }
 
         if ($_GET) {
-
-            $Metadata['params'] = $_GET;
-
+            $metaData['params'] = $_GET;
         } elseif ($_POST) {
-
-            $Metadata['params'] = $_POST;
-
+            $metaData['params'] = $_POST;
         }
+        return $metaData;
+    }
 
-        $Type = 'error';
+    public function logToRemote($errorType, $message, $metaData): void
+    {
+        try {
+            $data_string = json_encode([
+                'key' => $this->publicKey,
+                'source' => $this->platform,
+                'time' => $this->timeStamp,
+                'type' => $errorType,
+                'message' => $message,
+                'metadata' => $metaData
+            ]);
+            $response = json_decode($this->api->post('log/debug', $data_string));
 
-        if ($this->Enabled !== '1') {
-
-
-        } else {
-
-            if ($this->Log_to == 'collect') {
-
-                $Endpoint = 'https://api.clerk.io/v2/log/debug';
-
-                $data_string = json_encode([
-                    'debug' => '1',
-                    'key' =>$this->Key,
-                    'source' => $this->Platform,
-                    'time' => $this->Time,
-                    'type' => $Type,
-                    'message' => $Message,
-                    'metadata' => $Metadata]);
-
-                $curl = curl_init();
-
-                curl_setopt($curl, CURLOPT_URL, $Endpoint);
-                curl_setopt($curl, CURLOPT_POST, true);
-                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($curl, CURLOPT_POSTFIELDS, $data_string);
-
-                $response = json_decode(curl_exec($curl));
-
-                if ($response->status == 'error') {
-
-                    $this->LogToFile($Message, $Metadata);
-
-                }
-
-                curl_close($curl);
-
-            } elseif ($this->Log_to == 'file') {
-
-                $this->LogToFile($Message, $Metadata);
-
+            if ($response->status == 'error') {
+                $this->logToFile($message, $metaData);
             }
+        } catch (FileSystemException|Exception $e) {
+            return;
         }
+        return;
     }
 
     /**
-     * @param $Message
-     * @param $Metadata
-     * @throws \Magento\Framework\Exception\FileSystemException
+     * @throws FileSystemException
      */
-    public function warn($Message, $Metadata)
-    {
-        $version = $this->_product_metadata->getVersion();
-        header('User-Agent: ClerkExtensionBot Magento 2/v' . $version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
-        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
-
-            $Metadata['uri'] = "https://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
-        } elseif (isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
-
-            $Metadata['uri'] = "http://".$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI'];
-
-        }
-
-        if ($_GET) {
-
-            $Metadata['params'] = $_GET;
-
-        } elseif ($_POST) {
-
-            $Metadata['params'] = $_POST;
-
-        }
-
-        $Type = 'warn';
-
-        if ($this->Enabled !== '1') {
-
-
-        } else {
-
-            if ($this->Log_level == 'error') {
-
-
-            } else {
-
-                if ($this->Log_to == 'collect') {
-
-                    $Endpoint = 'https://api.clerk.io/v2/log/debug';
-
-                    $data_string = json_encode([
-                        'debug' => '1',
-                        'key' =>$this->Key,
-                        'source' => $this->Platform,
-                        'time' => $this->Time,
-                        'type' => $Type,
-                        'message' => $Message,
-                        'metadata' => $Metadata]);
-
-                    $curl = curl_init();
-
-                    curl_setopt($curl, CURLOPT_URL, $Endpoint);
-                    curl_setopt($curl, CURLOPT_POST, true);
-                    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($curl, CURLOPT_POSTFIELDS, $data_string);
-
-                    $response = json_decode(curl_exec($curl));
-
-                    if ($response->status == 'error') {
-
-                        $this->LogToFile($Message, $Metadata);
-
-                    }
-
-                    curl_close($curl);
-
-                } elseif ($this->Log_to == 'file') {
-
-                    $this->LogToFile($Message, $Metadata);
-
-                }
-            }
-        }
-    }
-
-    public function LogToFile($Message, $Metadata)
+    public function logToFile($Message, $Metadata): void
     {
 
-        $log = $this->Date->format('Y-m-d H:i:s') . ' MESSAGE: ' . $Message . ' METADATA: ' . json_encode($Metadata) . PHP_EOL .
+        $log = $this->date->format('Y-m-d H:i:s') . ' MESSAGE: ' . $Message . ' METADATA: ' . json_encode($Metadata) . PHP_EOL .
             '-------------------------' . PHP_EOL;
-        $path = $this->_dir->getPath('log') . '/clerk_log.log';
+        $path = $this->directory->getPath('log') . '/clerk_log.log';
 
         fopen($path, "a+");
         file_put_contents($path, $log, FILE_APPEND);
+    }
+
+    /**
+     * @param $message
+     * @param $metaData
+     * @throws FileSystemException
+     */
+    public function error($message, $metaData): void
+    {
+        header('User-Agent: ClerkExtensionBot Magento 2/v' . $this->version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
+        $metaData = $this->getMetadata($metaData);
+
+        $errorType = 'error';
+        if ($this->enabled) {
+            if ($this->logTo == 'collect') {
+                $this->logToRemote($errorType, $message, $metaData);
+            } elseif ($this->logTo == 'file') {
+                $this->logToFile($message, $metaData);
+            }
+        }
+    }
+
+    /**
+     * @param $message
+     * @param $metaData
+     * @throws FileSystemException
+     */
+    public function warn($message, $metaData): void
+    {
+        header('User-Agent: ClerkExtensionBot Magento 2/v' . $this->version . ' clerk/v' . $this->moduleList->getOne('Clerk_Clerk')['setup_version'] . ' PHP/v' . phpversion());
+        $metaData = $this->getMetadata($metaData);
+
+        $errorType = 'warn';
+        if ($this->enabled) {
+            if ($this->logLevel !== 'error') {
+                if ($this->logTo == 'collect') {
+                    $this->logToRemote($errorType, $message, $metaData);
+                } elseif ($this->logTo == 'file') {
+                    $this->logToFile($message, $metaData);
+                }
+            }
+        }
     }
 }

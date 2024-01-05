@@ -6,5 +6,5 @@ use Clerk\Clerk\Block\Adminhtml\Dashboard;
 
 class Recommendations extends Dashboard
 {
-    protected $type = 'recommendations';
+    protected string $type = 'recommendations';
 }

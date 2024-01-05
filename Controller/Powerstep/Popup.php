@@ -2,46 +2,46 @@
 
 namespace Clerk\Clerk\Controller\Powerstep;
 
-use Clerk\Clerk\Block\PowerstepPopup;
+use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Exception;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\Controller\ResultFactory;
-use Clerk\Clerk\Controller\Logger\ClerkLogger;
+use Magento\Framework\Exception\FileSystemException;
 
 class Popup extends Action
 {
     /**
-     * @var
+     * @var ClerkLogger
      */
-    protected $clerk_logger;
+    protected ClerkLogger $clerkLogger;
     /**
      * @var Session
      */
-    protected $checkoutSession;
+    protected Session $checkoutSession;
 
     public function __construct(
-        Context $context,
-        Session $checkoutSession,
-        ClerkLogger $clerk_logger
-        )
+        Context     $context,
+        Session     $checkoutSession,
+        ClerkLogger $clerkLogger
+    )
     {
         parent::__construct($context);
         $this->checkoutSession = $checkoutSession;
-        $this->clerk_logger = $clerk_logger;
+        $this->clerkLogger = $clerkLogger;
     }
 
     /**
      * Dispatch request
      *
      * @return void
+     * @throws FileSystemException
      */
-    public function execute()
+    public function execute(): void
     {
         try {
 
-            /** @var Page $response */
             $response = $this->resultFactory->create(ResultFactory::TYPE_PAGE);
             $layout = $response->addHandle('clerk_clerk_powerstep_popup')->getLayout();
 
@@ -49,10 +49,8 @@ class Popup extends Action
             $this->getResponse()->setBody($response);
             return;
 
-        } catch (\Exception $e) {
-
-            $this->clerk_logger->error('Powerstep execute ERROR', ['error' => $e->getMessage()]);
-
+        } catch (Exception $e) {
+            $this->clerkLogger->error('Powerstep execute ERROR', ['error' => $e->getMessage()]);
         }
     }
 }

@@ -2,23 +2,26 @@
 
 namespace Clerk\Clerk\Block\Adminhtml\Widget;
 
+use Magento\Backend\Block\Template;
 use Magento\Backend\Block\Template\Context;
+use Magento\Backend\Block\Widget;
 use Magento\Framework\Data\Form\Element\AbstractElement;
-use Magento\Framework\Option\ArrayPool;
 use Magento\Framework\Data\Form\Element\Select as FormSelect;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Option\ArrayPool;
 
-class Store extends \Magento\Backend\Block\Widget
+class Store extends Widget
 {
 
     /**
      * @var FormSelect
      */
-    protected $_formSelect;
+    protected FormSelect $_formSelect;
 
     /**
-     * @var \Magento\Framework\Option\ArrayPool
+     * @var ArrayPool
      */
-    protected $_sourceModelPool;
+    protected ArrayPool $_sourceModelPool;
 
     /**
      * Store constructor.
@@ -28,11 +31,11 @@ class Store extends \Magento\Backend\Block\Widget
      * @param array $data
      */
     public function __construct(
-        Context $context,
-        ArrayPool $sourceModelPool,
+        Context    $context,
+        ArrayPool  $sourceModelPool,
         FormSelect $formSelect,
-        array $data = []
-        )
+        array      $data = []
+    )
     {
         parent::__construct($context, $data);
         $this->_sourceModelPool = $sourceModelPool;
@@ -44,9 +47,9 @@ class Store extends \Magento\Backend\Block\Widget
      *
      * @param AbstractElement $element Form Element
      * @return AbstractElement
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws LocalizedException
      */
-    public function prepareElementHtml(AbstractElement $element)
+    public function prepareElementHtml(AbstractElement $element): AbstractElement
     {
         $uniqId = $this->mathRandom->getUniqueHash($element->getId());
 
@@ -55,7 +58,6 @@ class Store extends \Magento\Backend\Block\Widget
         );
 
         //Since we're using block as widget parameter type we need to create the select ourselves
-        /** @var \Magento\Framework\Data\Form\Element\Select $select */
         $select = $this->_formSelect;
         $select->setHtmlId($element->getHtmlId());
         $select->setName($element->getName());
@@ -69,7 +71,7 @@ class Store extends \Magento\Backend\Block\Widget
         echo get_class($element->getForm());
 
         //Create javascript block and append
-        /** @var \Magento\Backend\Block\Template $jsBlock */
+        /** @var Template $jsBlock */
         $jsBlock = $this->getLayout()->createBlock('Magento\Backend\Block\Template')
             ->setTemplate('Clerk_Clerk::widget.phtml')
             ->setAjaxUrl($ajaxUrl)

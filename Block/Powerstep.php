@@ -2,14 +2,29 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
-use Magento\Catalog\Block\Product\AbstractProduct;
-use Magento\Catalog\Model\Product;
+use Magento\Catalog\{Block\Product\AbstractProduct, Block\Product\Context, Model\Product};
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Store\Model\ScopeInterface;
 
 class Powerstep extends AbstractProduct
 {
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function __construct(
+        Context       $context,
+        Settings      $settingsHelper,
+        ContextHelper $contextHelper,
+        array         $data = []
+    )
+    {
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
+        parent::__construct($context, $data);
+    }
 
     /**
      * Get Cart URL
@@ -58,61 +73,23 @@ class Powerstep extends AbstractProduct
         return $this->getData('current_product');
     }
 
-    /**
-     * @throws NoSuchEntityException
-     */
     public function getExcludeState()
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        return $this->_scopeConfig->getValue(Config::XML_PATH_POWERSTEP_FILTER_DUPLICATES, $scope, $scope_id);
+        return $this->config->get(Config::XML_PATH_POWERSTEP_FILTER_DUPLICATES, $this->ctx);
     }
 
-    public function getTemplates()
+    public function getTemplates(): array
     {
+        $templates = array();
 
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        $template_contents = $this->_scopeConfig->getValue(Config::XML_PATH_POWERSTEP_TEMPLATES, $scope, $scope_id);
-        if ($template_contents) {
-            $template_contents = explode(',', $template_contents);
-        } else {
-            $template_contents = [0 => ''];
-        }
+        $template_contents = $this->config->get(Config::XML_PATH_POWERSTEP_TEMPLATES, $this->ctx);
+        $template_contents = $template_contents ? explode(',', $template_contents) : [0 => ''];
 
         foreach ($template_contents as $key => $template) {
-
             $templates[$key] = str_replace(' ', '', $template);
-
         }
 
         return $templates;
     }
 
-    public function generateRandomString($length = 25)
-    {
-
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $charactersLength = strlen($characters);
-        $randomString = '';
-
-        for ($i = 0; $i < $length; $i++) {
-            $randomString .= $characters[rand(0, $charactersLength - 1)];
-        }
-
-        return $randomString;
-    }
 }

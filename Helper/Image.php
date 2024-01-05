@@ -2,109 +2,95 @@
 
 namespace Clerk\Clerk\Helper;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
 use Clerk\Clerk\Model\Config;
 use Magento\Catalog\Helper\ImageFactory;
 use Magento\Catalog\Model\Product;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\App\RequestInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\UrlInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Store\Model\StoreManagerInterface;
+use Magento\Store\Api\Data\StoreInterface;
 
 class Image
 {
     /**
-     * @var RequestInterface
-     */
-    protected $requestInterface;
-    /**
      * @var ImageFactory
      */
-    protected $helperFactory;
+    protected ImageFactory $helperFactory;
 
+    protected $helperInstance;
     /**
-     * @var ScopeConfigInterface
+     * @var StoreInterface
      */
-    protected $scopeConfig;
-
+    protected StoreInterface $store;
     /**
-     * @var StoreManagerInterface
+     * @var Settings
      */
-    protected $storeManager;
+    protected Settings $config;
+    /**
+     * @var mixed
+     */
+    protected mixed $imageSize;
+    /**
+     * @var ContextHelper
+     */
+    private ContextHelper $contextHelper;
 
     /**
      * @param ImageFactory $helperFactory
-     * @param ScopeConfigInterface $scopeConfig
-     * @param StoreManagerInterface $storeManager
+     * @throws NoSuchEntityException
      */
     public function __construct(
-        ImageFactory                            $helperFactory,
-        ScopeConfigInterface                    $scopeConfig,
-        StoreManagerInterface                   $storeManager,
-        RequestInterface $requestInterface
+        ImageFactory  $helperFactory,
+        ContextHelper $contextHelper,
+        Settings      $settingsHelper,
     )
     {
+        $this->config = $settingsHelper;
         $this->helperFactory = $helperFactory;
-        $this->scopeConfig = $scopeConfig;
-        $this->storeManager = $storeManager;
-        $this->requestInterface = $requestInterface;
+        $this->contextHelper = $contextHelper;
+        $this->helperInstance = $this->helperFactory->create();
+        $this->store = $this->contextHelper->getStoreFromContext();
+        $this->imageSize = $this->config->get(
+            Config::XML_PATH_PRODUCT_SYNCHRONIZATION_IMAGE_TYPE,
+            ['scope_id' => $this->store->getId(), 'scope' => 'store']
+        );
     }
 
     /**
      * Builds product image URL
      *
      * @param Product $item
-     * @return string
+     * @return string|null
      */
-    public function getUrl(Product $item)
+    public function getUrl(Product $item): ?string
     {
         $imageUrl = null;
+        $imagePath = null;
+        $helper = $this->helperInstance->init($item, $this->imageSize);
 
-        //Get image thumbnail from settings
-        $imageType = $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_IMAGE_TYPE, ScopeInterface::SCOPE_STORE);
-        /** @var \Magento\Catalog\Helper\Image $helper */
-        $helper = $this->helperFactory->create()->init($item, $imageType);
-
-        if ($imageType) {
+        if ($this->imageSize) {
             $imageUrl = $helper->getUrl();
             if ($imageUrl == $helper->getDefaultPlaceholderUrl()) {
-                // allow to try other types
+                // Try other image types if image placeholder.
                 $imageUrl = null;
             }
         }
 
         if (!$imageUrl) {
-            $_params = $this->requestInterface->getParams();
-            if (array_key_exists('scope_id', $_params)) {
-                $storeId = $_params['scope_id'];
-                $store = $this->storeManager->getStore($storeId);
-            } else {
-                $store = $this->storeManager->getStore();
-            }
-            $itemImage = $item->getImage() ?? $item->getSmallImage() ?? $item->getThumbnail();
-
-            if ($itemImage === 'no_selection' || !$itemImage) {
-                $imageUrl = $helper->getDefaultPlaceholderUrl('small_image');
-            } else {
-                $imageUrl = $store->getBaseUrl(UrlInterface::URL_TYPE_MEDIA) . 'catalog/product' . $itemImage;
-            }
+            $imagePath = $item->getImage() ?? $item->getSmallImage() ?? $item->getThumbnail();
+        }
+        if ($imagePath === 'no_selection') {
+            $imageUrl = $helper->getDefaultPlaceholderUrl('small_image');
+        } elseif (!$imagePath) {
+            $imageUrl = $helper->getDefaultPlaceholderUrl('small_image');
+        } else {
+            $imageUrl = $this->store->getBaseUrl(UrlInterface::URL_TYPE_MEDIA) . 'catalog/product' . $imagePath;
         }
 
+        if (strpos($imageUrl, 'catalog/product/') === false) {
+            $imageUrl = str_replace('catalog/product', 'catalog/product/', $imageUrl);
+        }
         return $imageUrl;
     }
 
-
-    /**
-     * Format Image Path Valid
-     * @param string $imagePath
-     * @return string $imagePath
-     */
-    protected function fixImagePath($imagePath)
-    {
-        if (strpos($imagePath, 'catalog/product/') > -1) {
-            return $imagePath;
-        } else {
-            return str_replace('catalog/product', 'catalog/product/', $imagePath);
-        }
-    }
 }

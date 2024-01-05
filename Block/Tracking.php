@@ -5,72 +5,67 @@
 
 namespace Clerk\Clerk\Block;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
-use Magento\Framework\View\Element\Template;
-use Magento\Store\Model\ScopeInterface;
+use Magento\Backend\Block\Widget\Context;
 use Magento\Directory\Model\Currency;
+use Magento\Framework\Data\Form\FormKey;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\View\Element\Template;
 use Magento\Store\Model\StoreManagerInterface;
 
 class Tracking extends Template
 {
 
-    protected $formKey;
+    protected FormKey $formKey;
 
-    protected $_currency;
+    protected Currency $currency;
 
-    protected $_storeManager;
+    protected $storeManager;
+    protected Settings $config;
+    protected ContextHelper $contextHelper;
+    protected array $ctx;
 
+    /**
+     * @throws NoSuchEntityException
+     */
     public function __construct(
-        \Magento\Backend\Block\Widget\Context $context,
-        \Magento\Framework\Data\Form\FormKey $formKey,
-        Currency $_currency,
-        StoreManagerInterface $_storeManager
-    ) {
+        Context               $context,
+        FormKey               $formKey,
+        Currency              $currency,
+        StoreManagerInterface $storeManager,
+        Settings              $settingsHelper,
+        ContextHelper         $contextHelper,
+    )
+    {
         parent::__construct($context);
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromContext();
         $this->formKey = $formKey;
-        $this->_currency = $_currency;
-        $this->_storeManager = $_storeManager;
+        $this->currency = $currency;
+        $this->storeManager = $storeManager;
 
     }
+
     /**
      * Get public key
      *
      * @return mixed
      */
-    public function getPublicKey()
+    public function getPublicKey(): mixed
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        return $this->_scopeConfig->getValue(
-            Config::XML_PATH_PUBLIC_KEY,
-            $scope,
-            $scope_id
-        );
+        return $this->config->get(Config::XML_PATH_PUBLIC_KEY, $this->ctx);
     }
 
-    public function getLanguage()
+    /**
+     * @return mixed
+     */
+    public function getLanguage(): mixed
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        return $this->_scopeConfig->getValue(
-            Config::XML_PATH_LANGUAGE,
-            $scope,
-            $scope_id
-        );
+        return $this->config->get(Config::XML_PATH_LANGUAGE, $this->ctx);
     }
 
     /**
@@ -78,22 +73,9 @@ class Tracking extends Template
      *
      * @return string
      */
-    public function getCollectionEmails()
+    public function getCollectionEmails(): string
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        return ($this->_scopeConfig->isSetFlag(
-            Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_EMAILS,
-            $scope,
-            $scope_id
-        ) ? 'true' : 'false');
+        return ($this->config->bool(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_EMAILS, $this->ctx) ? 'true' : 'false');
     }
 
     /**
@@ -101,25 +83,15 @@ class Tracking extends Template
      *
      * @return string
      */
-    public function getCollectionBaskets()
+    public function getCollectionBaskets(): string
     {
-
-        if ($this->_storeManager->isSingleStoreMode()) {
-            $scope = 'default';
-            $scope_id = '0';
-        } else {
-            $scope = ScopeInterface::SCOPE_STORE;
-            $scope_id = $this->_storeManager->getStore()->getId();
-        }
-
-        $collectBaskets = "false";
-        if ($this->_scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_BASKETS, $scope, $scope_id) == '1') {
-            $collectBaskets = "true";
-        }
-        return $collectBaskets;
+        return ($this->config->get(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_COLLECT_BASKETS, $this->ctx) ? 'true' : 'false');
     }
 
-    public function getFormKey()
+    /**
+     * @throws LocalizedException
+     */
+    public function getFormKey(): string
     {
 
         return $this->formKey->getFormKey();
@@ -129,30 +101,33 @@ class Tracking extends Template
      * Get store base currency code
      *
      * @return string
+     * @throws NoSuchEntityException
      */
-    public function getBaseCurrencyCode()
+    public function getBaseCurrencyCode(): string
     {
-        return $this->_storeManager->getStore()->getBaseCurrencyCode();
+        return $this->storeManager->getStore()->getBaseCurrencyCode();
     }
 
     /**
      * Get current store currency code
      *
      * @return string
+     * @throws NoSuchEntityException
      */
-    public function getCurrentCurrencyCode()
+    public function getCurrentCurrencyCode(): string
     {
-        return $this->_storeManager->getStore()->getCurrentCurrencyCode();
+        return $this->storeManager->getStore()->getCurrentCurrencyCode();
     }
 
     /**
      * Get default store currency code
      *
      * @return string
+     * @throws NoSuchEntityException
      */
-    public function getDefaultCurrencyCode()
+    public function getDefaultCurrencyCode(): string
     {
-        return $this->_storeManager->getStore()->getDefaultCurrencyCode();
+        return $this->storeManager->getStore()->getDefaultCurrencyCode();
     }
 
     /**
@@ -161,32 +136,25 @@ class Tracking extends Template
      * If base currency is not allowed in current website config scope,
      * then it can be disabled with $skipBaseNotAllowed
      *
-     * @param  bool $skipBaseNotAllowed
+     * @param bool $skipBaseNotAllowed
      * @return array
+     * @throws NoSuchEntityException
      */
-    public function getAvailableCurrencyCodes($skipBaseNotAllowed = false)
+    public function getAvailableCurrencyCodes(bool $skipBaseNotAllowed = false): array
     {
-        return $this->_storeManager->getStore()->getAvailableCurrencyCodes($skipBaseNotAllowed);
-    }
-
-    /**
-     * Get array of installed currencies for the scope
-     *
-     * @return array
-     */
-    public function getAllowedCurrencies()
-    {
-        return $this->_storeManager->getStore()->getAllowedCurrencies();
+        return $this->storeManager->getStore()->getAvailableCurrencyCodes($skipBaseNotAllowed);
     }
 
     /**
      * Get current currency rate
      *
      * @return float
+     * @throws LocalizedException
+     * @throws NoSuchEntityException
      */
-    public function getCurrentCurrencyRate()
+    public function getCurrentCurrencyRate(): float
     {
-        return $this->_storeManager->getStore()->getCurrentCurrencyRate();
+        return $this->storeManager->getStore()->getCurrentCurrencyRate();
     }
 
     /**
@@ -194,9 +162,33 @@ class Tracking extends Template
      *
      * @return string
      */
-    public function getCurrentCurrencySymbol()
+    public function getCurrentCurrencySymbol(): string
     {
-        return $this->_currency->getCurrencySymbol();
+        return $this->currency->getCurrencySymbol();
+    }
+
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function getAllCurrencyRates(): array
+    {
+        $currency_codes = $this->getAllowedCurrencies();
+        $currency_rates_array = array();
+        foreach ($currency_codes as $key => $code) {
+            $currency_rates_array[$code] = $this->getCurrencyRateFromIso($code);
+        }
+        return $currency_rates_array;
+    }
+
+    /**
+     * Get array of installed currencies for the scope
+     *
+     * @return array
+     * @throws NoSuchEntityException
+     */
+    public function getAllowedCurrencies(): array
+    {
+        return $this->storeManager->getStore()->getAllowedCurrencies();
     }
 
     /**
@@ -205,36 +197,32 @@ class Tracking extends Template
      * @param string|null $currencyIso Currency ISO code
      *
      * @return float
+     * @throws NoSuchEntityException
      */
-    public function getCurrencyRateFromIso($currencyIso = null)
+    public function getCurrencyRateFromIso(string $currencyIso = null): float
     {
-        if(! $currencyIso) {
-            return 1.0;
-        } else {
-            return $this->_storeManager->getStore()->getBaseCurrency()->getRate($currencyIso);
+        return !$currencyIso ? 1.0 : $this->storeManager->getStore()->getBaseCurrency()->getRate($currencyIso);
+    }
+
+    /**
+     * @throws NoSuchEntityException
+     */
+    public function getClerkJSLink(): string
+    {
+        $storeName = $this->getStoreNameSlug() ?? 'clerk';
+        return '://custom.clerk.io/' . $storeName . '.js';
+    }
+
+    /**
+     * @return string
+     * @throws NoSuchEntityException
+     */
+    public function getStoreNameSlug(): string
+    {
+        $storeName = $this->storeManager->getStore()->getName();
+        if (!is_string($storeName)) {
+            return '';
         }
-    }
-
-    public function getAllCurrencyRates()
-    {
-        $currency_codes = $this->getAllowedCurrencies();
-        $currency_rates_array = array();
-        foreach($currency_codes as $key => $code) {
-            $currency_rates_array[$code] = $this->getCurrencyRateFromIso($code);
-        }
-        return $currency_rates_array;
-    }
-
-    public function getStoreNameSlug()
-    {
-        $storeName = $this->_storeManager->getStore()->getName();
-        $storeName = preg_replace('/[^a-z]/', '', strtolower($storeName));
-        return $storeName;
-    }
-
-    public function getClerkJSLink()
-    {
-      $storeName = $this->getStoreNameSlug() ?? 'clerk';
-      return '://custom.clerk.io/' . $storeName . '.js';
+        return preg_replace('/[^a-z]/', '', strtolower($storeName));
     }
 }

@@ -64,8 +64,6 @@ class Index extends AbstractAction
      * @param CollectionFactory $categoryCollectionFactory
      * @param CategoryFactory $categoryFactory
      * @param LoggerInterface $logger
-     * @param PageCollectionFactory $pageCollectionFactory
-     * @param Page $pageHelper
      * @param ClerkLogger $clerkLogger
      * @param ModuleList $moduleList
      * @param ProductMetadataInterface $productMetadata

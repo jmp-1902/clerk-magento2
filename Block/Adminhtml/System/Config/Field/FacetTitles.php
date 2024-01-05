@@ -2,69 +2,45 @@
 
 namespace Clerk\Clerk\Block\Adminhtml\System\Config\Field;
 
+use Clerk\Clerk\Helper\Context as ContextHelper;
+use Clerk\Clerk\Helper\Settings;
 use Clerk\Clerk\Model\Config;
+use Exception;
+use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
-use Magento\Store\Model\ScopeInterface;
+use Magento\Framework\Data\Form\Element\AbstractElement;
 
 class FacetTitles extends Field
 {
     /**
-     * @var RequestInterface
-     */
-    protected $requestInterface;
-
-    /**
      * FacetTitles constructor.
-     * @param \Magento\Backend\Block\Template\Context $context
+     * @param Context $context
+     * @param Settings $settingsHelper
+     * @param ContextHelper $contextHelper
      * @param array $data
      */
     public function __construct(
-        \Magento\Backend\Block\Template\Context $context,
-        \Magento\Framework\App\RequestInterface $requestInterface,
-        array $data = []
-    ) {
-        $this->requestInterface = $requestInterface;
+        Context       $context,
+        Settings      $settingsHelper,
+        ContextHelper $contextHelper,
+        array         $data = []
+    )
+    {
+        $this->config = $settingsHelper;
+        $this->contextHelper = $contextHelper;
+        $this->ctx = $this->contextHelper->getScopeFromParams();
         $this->setTemplate('Clerk_Clerk::facettitles.phtml');
         parent::__construct($context, $data);
     }
 
     /**
-     * Get html for element
-     *
-     * @param \Magento\Framework\Data\Form\Element\AbstractElement $element
-     * @return string
-     */
-    protected function _getElementHtml(\Magento\Framework\Data\Form\Element\AbstractElement $element)
-    {
-        $this->setElement($element);
-
-        $html = '';
-
-        $html .= $this->toHtml();
-
-        return $html;
-    }
-
-    /**
      * Get configured facet attributes
+     * @return array
      */
-    public function getConfiguredAttributes()
+    public function getConfiguredAttributes(): array
     {
-        $_params = $this->requestInterface->getParams();
-        $scope_id = '0';
-        $scope = 'default';
-        if (array_key_exists('website', $_params)) {
-            $scope = 'website';
-            $scope_id = $_params[$scope];
-        }
-        if (array_key_exists('store', $_params)) {
-            $scope = 'store';
-            $scope_id = $_params[$scope];
-        }
-        $attributes = $this->_scopeConfig->getValue(Config::XML_PATH_FACETED_SEARCH_ATTRIBUTES, $scope, $scope_id);
-        $configuredAttributes = is_string($attributes) ? explode(',', $attributes) : [];
-
-        return $configuredAttributes;
+        $attributes = $this->config->get(Config::XML_PATH_FACETED_SEARCH_ATTRIBUTES, $this->ctx);
+        return is_string($attributes) ? explode(',', $attributes) : [];
     }
 
     /**
@@ -72,22 +48,25 @@ class FacetTitles extends Field
      *
      * @return string
      */
-    public function getScopeLabel()
+    public function getScopeLabel(): string
     {
-        return $this->_storeManager->getStore($this->getStoreId())->getName();
+        try {
+            return $this->contextHelper->getStoreNameFromContext();
+        } catch (Exception) {
+            return '';
+        }
     }
 
     /**
-     * Get store id
+     * Get html for element
      *
-     * @return mixed
+     * @param AbstractElement $element
+     * @return string
      */
-    public function getStoreId()
+    protected function _getElementHtml(AbstractElement $element): string
     {
-        if (!$this->hasData('store_id')) {
-            $this->setData('store_id', (int)$this->getRequest()->getParam('store'));
-        }
+        $this->setElement($element);
 
-        return $this->getData('store_id');
+        return $this->toHtml();
     }
 }

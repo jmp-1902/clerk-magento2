@@ -2,10 +2,11 @@
 
 namespace Clerk\Clerk\Model;
 
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Psr\Log\LoggerInterface;
 use Clerk\Clerk\Controller\Logger\ClerkLogger;
-use Magento\Store\Model\ScopeInterface;
+use Exception;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\RequestInterface;
+use Psr\Log\LoggerInterface;
 
 class Api
 {
@@ -38,15 +39,16 @@ class Api
      * Api constructor
      *
      * @param ScopeConfigInterface $scopeConfig
-     * @param \Magento\Framework\App\RequestInterface $requestInterface
+     * @param RequestInterface $requestInterface
      */
     public function __construct(
-        LoggerInterface $logger,
+        LoggerInterface      $logger,
         ScopeConfigInterface $scopeConfig,
-        ClerkLogger $Clerklogger,
-        \Magento\Framework\App\RequestInterface $requestInterface
-    ) {
-        $this->clerk_logger = $Clerklogger;
+        ClerkLogger          $clerkLogger,
+        RequestInterface     $requestInterface
+    )
+    {
+        $this->clerk_logger = $clerkLogger;
         $this->logger = $logger;
         $this->scopeConfig = $scopeConfig;
         $this->requestInterface = $requestInterface;
@@ -65,7 +67,7 @@ class Api
             $this->post('product/add', $params, $store_id);
             $this->clerk_logger->log('Added Product', ['response' => $params]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Adding Products Error', ['error' => $e->getMessage()]);
 
@@ -77,9 +79,9 @@ class Api
      *
      * @param string $endpoint
      * @param array $params
-     * @throws \Exception
+     * @throws Exception
      */
-    private function post($endpoint, $params = [], $store_id = null)
+    public function post($endpoint, $params = [], $store_id = null)
     {
         try {
 
@@ -87,11 +89,9 @@ class Api
 
             $url = $this->baseurl . $endpoint;
 
-            $response = $this->_curl_post($url, $params);
+            return $this->_curl_post($url, $params);
 
-            return $response;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('POST Request Error', ['error' => $e->getMessage()]);
 
@@ -123,11 +123,32 @@ class Api
         ];
     }
 
+    private function _curl_post($url, $params = [])
+    {
+        try {
+
+            $curl = curl_init($url);
+            curl_setopt($curl, CURLOPT_POST, true);
+            if (!empty($params)) {
+                curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params, true));
+            }
+            curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+            $response = curl_exec($curl);
+            curl_close($curl);
+            return $response;
+
+        } catch (Exception $e) {
+
+            $this->clerk_logger->error('POST Request Error', ['error' => $e->getMessage()]);
+
+        }
+    }
+
     /**
      * Remove product
      *
      * @param $productId
-     * @throws \Exception
+     * @throws Exception
      */
     public function removeProduct($productId, $store_id = null)
     {
@@ -140,9 +161,35 @@ class Api
             $this->get('product/remove', $params, $store_id);
             $this->clerk_logger->log('Removed Product', ['response' => $params]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Removing Products Error', ['error' => $e->getMessage()]);
+
+        }
+    }
+
+    /**
+     * Perform a GET request
+     *
+     * @param string $endpoint
+     * @param array $params
+     * @throws Exception
+     */
+    public function get($endpoint, $params = [], $store_id = null)
+    {
+        try {
+
+            $params = array_merge($this->getDefaultParams($store_id), $params);
+
+            $url = $this->baseurl . $endpoint;
+
+            $response = $this->_curl_get($url, $params);
+
+            return $response;
+
+        } catch (Exception $e) {
+
+            $this->clerk_logger->error('GET Request Error', ['error' => $e->getMessage()]);
 
         }
     }
@@ -161,54 +208,7 @@ class Api
             curl_close($curl);
             return $response;
 
-        } catch (\Exception $e) {
-
-            $this->clerk_logger->error('GET Request Error', ['error' => $e->getMessage()]);
-
-        }
-    }
-
-    private function _curl_post($url, $params = [])
-    {
-        try {
-
-            $curl = curl_init($url);
-            curl_setopt($curl, CURLOPT_POST, true);
-            if (!empty($params)) {
-                curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params, true));
-            }
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-            $response = curl_exec($curl);
-            curl_close($curl);
-            return $response;
-
-        } catch (\Exception $e) {
-
-            $this->clerk_logger->error('POST Request Error', ['error' => $e->getMessage()]);
-
-        }
-    }
-
-    /**
-     * Perform a GET request
-     *
-     * @param string $endpoint
-     * @param array $params
-     * @throws \Exception
-     */
-    private function get($endpoint, $params = [], $store_id = null)
-    {
-        try {
-
-            $params = array_merge($this->getDefaultParams($store_id), $params);
-
-            $url = $this->baseurl . $endpoint;
-
-            $response = $this->_curl_get($url, $params);
-
-            return $response;
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('GET Request Error', ['error' => $e->getMessage()]);
 
@@ -221,7 +221,7 @@ class Api
      * @param $publicKey
      * @param $privateKey
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
     public function keysValid($publicKey, $privateKey)
     {
@@ -234,7 +234,7 @@ class Api
 
             return $this->get('client/account/info', $params);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Key Validation Error', ['error' => $e->getMessage()]);
 
@@ -244,7 +244,7 @@ class Api
     /**
      * Get available facet attributes
      *
-     * @throws \Exception
+     * @throws Exception
      */
     public function getFacetAttributes()
     {
@@ -255,7 +255,7 @@ class Api
                 return json_decode($facetAttributesResponse);
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Facet Attributes Error', ['error' => $e->getMessage()]);
 
@@ -286,7 +286,7 @@ class Api
                 }
             }
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Endpoint For Content Error', ['error' => $e->getMessage()]);
 
@@ -298,7 +298,7 @@ class Api
      *
      * @param int $storeId
      * @return string
-     * @throws \Exception
+     * @throws Exception
      */
     public function getContent($storeId = null)
     {
@@ -321,7 +321,7 @@ class Api
 
             return $this->get('client/account/content/list', $params);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->clerk_logger->error('Getting Content Error', ['error' => $e->getMessage()]);
 
@@ -333,8 +333,8 @@ class Api
      *
      * @param string $token_string
      * @param string $publicKey
-     * @throws \Exception
      * @return array
+     * @throws Exception
      */
     public function verifyToken($token_string = null, $publicKey = null)
     {
@@ -353,9 +353,9 @@ class Api
 
             $decodedResponse = json_decode($response, true);
 
-            return (array) $decodedResponse;
+            return (array)$decodedResponse;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
 
             $this->logger->error(' Communicator "postTokenVerification"', ['error' => $e->getMessage()]);
 

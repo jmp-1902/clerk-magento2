@@ -13,8 +13,6 @@ use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\RequestInterface;
-use Magento\Framework\App\ResponseInterface;
-use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Data\Collection;
 use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Module\ModuleList;
@@ -32,7 +30,7 @@ class Index extends AbstractAction
     /**
      * @var ProductAdapter
      */
-    protected $productAdapter;
+    protected ProductAdapter $productAdapter;
 
     /**
      * @var ModuleList
@@ -42,7 +40,7 @@ class Index extends AbstractAction
     /**
      * @var Data
      */
-    protected $taxHelper;
+    protected Data $taxHelper;
 
     /**
      * @var ProductMetadataInterface
@@ -54,8 +52,12 @@ class Index extends AbstractAction
      *
      * @param Context $context
      * @param ScopeConfigInterface $scopeConfig
-     * @param LoggerInterface $logger
+     * @param StoreManagerInterface $storeManager
      * @param Product $productAdapter
+     * @param ClerkLogger $clerk_logger
+     * @param LoggerInterface $logger
+     * @param Data $taxHelper
+     * @param ModuleList $moduleList
      * @param ProductMetadataInterface $product_metadata
      * @param RequestApi $request_api
      * @param Api $api
@@ -92,7 +94,7 @@ class Index extends AbstractAction
     }
 
     /**
-     * @return ResponseInterface|ResultInterface|void
+     * @return void
      * @throws FileSystemException
      */
     public function execute(): void
@@ -103,18 +105,8 @@ class Index extends AbstractAction
                 ->setHttpResponseCode(200)
                 ->setHeader('Content-Type', 'application/json', true);
 
-            if (isset($this->fields)) {
-
-                if (!in_array('qty', $this->fields)) {
-
-                    $this->fields[] = 'qty';
-
-                }
-
-            } else {
-
+            if (!isset($this->fields) || !in_array('qty', $this->fields)) {
                 $this->fields[] = 'qty';
-
             }
 
             $response = $this->productAdapter->getResponse($this->fields, $this->page, $this->limit, $this->orderBy, $this->order, $this->scope, $this->scopeid);
@@ -123,7 +115,7 @@ class Index extends AbstractAction
                 $response = array_values(array_filter($response));
             }
 
-            $this->clerkLogger->log('Feched page ' . $this->page . ' with ' . count($response) . ' products', ['response' => $response]);
+            $this->clerkLogger->log('Fetched page ' . $this->page . ' with ' . count($response) . ' products', ['response' => $response]);
 
             $this->getResponse()->setBody(json_encode($response));
 
@@ -136,7 +128,7 @@ class Index extends AbstractAction
 
     /**
      * @param RequestInterface $request
-     * @todo Remove this once everything is refactored to use adapters
+     * @throws FileSystemException
      */
     protected function getArguments(RequestInterface $request): void
     {
