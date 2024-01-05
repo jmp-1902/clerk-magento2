@@ -2,87 +2,87 @@
 
 namespace Clerk\Clerk\Observer;
 
+use Clerk\Clerk\Model\Adapter\Product as ProductAdapter;
 use Clerk\Clerk\Model\Api;
 use Clerk\Clerk\Model\Config;
+use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Catalog\Model\Product;
+use Magento\Catalog\Model\Product as ProductModel;
+use Magento\ConfigurableProduct\Model\ResourceModel\Product\Type\Configurable as ProductModelConfigurable;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\RequestInterface;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
+use Magento\Framework\Exception\FileSystemException;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Store\Model\App\Emulation;
-use Magento\Store\Model\StoreManagerInterface;
-use Clerk\Clerk\Model\Adapter\Product as ProductAdapter;
-use Psr\Log\LoggerInterface;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Catalog\Api\ProductRepositoryInterface;
-
-use Magento\ConfigurableProduct\Model\ResourceModel\Product\Type\Configurable as ProductModelConfigurable;
 use Magento\GroupedProduct\Model\Product\Type\Grouped as ProductModelGrouped;
-use Magento\Catalog\Model\Product as ProductModel;
+use Magento\Store\Model\App\Emulation;
+use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\StoreManagerInterface;
+use Psr\Log\LoggerInterface;
 
 class ProductSaveAfterObserver implements ObserverInterface
 {
     /**
      * @var ProductModel
      */
-    protected $_productModel;
+    protected ProductModel $productModel;
 
     /**
      * @var ProductModelGrouped
      */
-    protected $_productModelGrouped;
+    protected ProductModelGrouped $productModelGrouped;
 
     /**
      * @var ProductModelConfigurable
      */
-    protected $_productModelConfigurable;
+    protected ProductModelConfigurable $productModelConfigurable;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var RequestInterface
      */
-    protected $request;
+    protected RequestInterface $request;
 
     /**
      * @var ManagerInterface
      */
-    protected $eventManager;
+    protected ManagerInterface $eventManager;
 
     /**
      * @var Emulation
      */
-    protected $emulation;
+    protected Emulation $emulation;
 
     /**
      * @var StoreManagerInterface
      */
-    protected $storeManager;
+    protected StoreManagerInterface $storeManager;
 
     /**
      * @var Api
      */
-    protected $api;
+    protected Api $api;
 
     /**
      * @var ProductAdapter
      */
-    protected $productAdapter;
+    protected ProductAdapter $productAdapter;
 
     /**
      * @var ProductRepositoryInterface
      */
-    protected $productRepository;
+    protected ProductRepositoryInterface $productRepository;
 
     /**
      * @var LoggerInterface
      */
-    protected $logger;
+    protected LoggerInterface $logger;
 
     /**
      * ProductSaveAfterObserver constructor.
@@ -96,21 +96,24 @@ class ProductSaveAfterObserver implements ObserverInterface
      * @param ProductModelConfigurable $productModelConfigurable
      * @param ProductModelGrouped $productModelGrouped
      * @param ProductModel $productModel
+     * @param ProductRepositoryInterface $productRepository
+     * @param LoggerInterface $logger
      */
     public function __construct(
-        ScopeConfigInterface $scopeConfig,
-        ManagerInterface $eventManager,
-        RequestInterface $request,
-        Emulation $emulation,
-        StoreManagerInterface $storeManager,
-        Api $api,
-        ProductAdapter $productAdapter,
-        ProductModelConfigurable $productModelConfigurable,
-        ProductModelGrouped $productModelGrouped,
-        ProductModel $productModel,
+        ScopeConfigInterface       $scopeConfig,
+        ManagerInterface           $eventManager,
+        RequestInterface           $request,
+        Emulation                  $emulation,
+        StoreManagerInterface      $storeManager,
+        Api                        $api,
+        ProductAdapter             $productAdapter,
+        ProductModelConfigurable   $productModelConfigurable,
+        ProductModelGrouped        $productModelGrouped,
+        ProductModel               $productModel,
         ProductRepositoryInterface $productRepository,
-        LoggerInterface $logger
-    ) {
+        LoggerInterface            $logger
+    )
+    {
         $this->scopeConfig = $scopeConfig;
         $this->eventManager = $eventManager;
         $this->request = $request;
@@ -120,9 +123,9 @@ class ProductSaveAfterObserver implements ObserverInterface
         $this->productAdapter = $productAdapter;
         $this->productRepository = $productRepository;
         $this->logger = $logger;
-        $this->_productModelConfigurable = $productModelConfigurable;
-        $this->_productModelGrouped = $productModelGrouped;
-        $this->_productModel = $productModel;
+        $this->productModelConfigurable = $productModelConfigurable;
+        $this->productModelGrouped = $productModelGrouped;
+        $this->productModel = $productModel;
     }
 
     /**
@@ -130,13 +133,14 @@ class ProductSaveAfterObserver implements ObserverInterface
      *
      * @param Observer $observer
      * @return void
+     * @throws NoSuchEntityException
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(Observer $observer): void
     {
         $_params = $this->request->getParams();
         $storeId = 0;
         $scope = 'default';
-        if (array_key_exists('store', $_params)){
+        if (array_key_exists('store', $_params)) {
             $scope = 'store';
             $storeId = $_params[$scope];
         }
@@ -146,7 +150,7 @@ class ProductSaveAfterObserver implements ObserverInterface
             $productstoreIds = $product->getStoreIds();
             foreach ($productstoreIds as $productstoreId) {
                 $product = $this->productRepository->getById($product->getId(), false, $productstoreId);
-                if ($this->storeManager->getStore($productstoreId)->isActive() == true) {
+                if ($this->storeManager->getStore($productstoreId)->isActive()) {
                     try {
                         $this->updateStore($product, $productstoreId);
                     } catch (NoSuchEntityException $e) {
@@ -167,16 +171,18 @@ class ProductSaveAfterObserver implements ObserverInterface
     }
 
     /**
+     * @param ProductModel $product
      * @param $storeId
+     * @throws FileSystemException
      */
-    protected function updateStore(Product $product, $storeId)
+    protected function updateStore(Product $product, $storeId): void
     {
         $this->emulation->startEnvironmentEmulation($storeId);
         if ($this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_REAL_TIME_ENABLED, ScopeInterface::SCOPE_STORE, $storeId)) {
             if ($product->getId()) {
 
                 //Cancel if product visibility is not as defined
-                if( 'any' != $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_VISIBILITY, ScopeInterface::SCOPE_STORE, $storeId) ) {
+                if ('any' != $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_VISIBILITY, ScopeInterface::SCOPE_STORE, $storeId)) {
                     if ($product->getVisibility() != $this->scopeConfig->getValue(Config::XML_PATH_PRODUCT_SYNCHRONIZATION_VISIBILITY, ScopeInterface::SCOPE_STORE, $storeId)) {
                         return;
                     }
@@ -189,28 +195,24 @@ class ProductSaveAfterObserver implements ObserverInterface
                     }
                 }
 
-                // 21-10-2021 KKY update parent products if in Grouped or child to Configurable before we check visibility and saleable - start
-
-                $confParentProductIds = $this->_productModelConfigurable->getParentIdsByChild($product->getId());
+                $confParentProductIds = $this->productModelConfigurable->getParentIdsByChild($product->getId());
                 if (isset($confParentProductIds[0])) {
-                    $confparentproduct = $this->_productModel->load($confParentProductIds[0]);
+                    $confparentproduct = $this->productModel->load($confParentProductIds[0]);
 
                     $productInfo = $this->productAdapter->getInfoForItem($confparentproduct, 'store', $storeId);
                     $this->api->addProduct($productInfo, $storeId);
 
                 }
-                $groupParentProductIds = $this->_productModelGrouped->getParentIdsByChild($product->getId());
+                $groupParentProductIds = $this->productModelGrouped->getParentIdsByChild($product->getId());
                 if (isset($groupParentProductIds[0])) {
                     foreach ($groupParentProductIds as $groupParentProductId) {
-                        $groupparentproduct = $this->_productModel->load($groupParentProductId);
+                        $groupparentproduct = $this->productModel->load($groupParentProductId);
 
                         $productInfo = $this->productAdapter->getInfoForItem($groupparentproduct, 'store', $storeId);
                         $this->api->addProduct($productInfo, $storeId);
 
                     }
                 }
-
-                // 21-10-2021 KKY update parent products if in Grouped or child to Configurable - end
 
                 $productInfo = $this->productAdapter->getInfoForItem($product, 'store', $storeId);
 

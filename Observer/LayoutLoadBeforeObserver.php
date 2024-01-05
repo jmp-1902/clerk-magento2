@@ -6,7 +6,7 @@ use Clerk\Clerk\Model\Config;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
-use Magento\Framework\View\Layout;
+use Magento\Framework\View\Layout as LayoutAlias;
 use Magento\Store\Model\ScopeInterface;
 
 class LayoutLoadBeforeObserver implements ObserverInterface
@@ -14,7 +14,7 @@ class LayoutLoadBeforeObserver implements ObserverInterface
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * LayoutGenerateBlocksAfterObserver constructor.
@@ -30,9 +30,9 @@ class LayoutLoadBeforeObserver implements ObserverInterface
      * @param Observer $observer
      * @return void
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(Observer $observer): void
     {
-        /** @var Layout $layout */
+        /** @var LayoutAlias $layout */
         $layout = $observer->getLayout();
         $actionName = $observer->getFullActionName();
 
@@ -47,7 +47,7 @@ class LayoutLoadBeforeObserver implements ObserverInterface
      *
      * @return bool
      */
-    private function isClerkSearchEnabled()
+    private function isClerkSearchEnabled(): bool
     {
         return $this->scopeConfig->isSetFlag(Config::XML_PATH_SEARCH_ENABLED, ScopeInterface::SCOPE_STORE);
     }

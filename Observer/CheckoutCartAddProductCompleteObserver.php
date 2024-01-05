@@ -14,12 +14,12 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
     /**
      * @var ScopeConfigInterface
      */
-    protected $scopeConfig;
+    protected ScopeConfigInterface $scopeConfig;
 
     /**
      * @var Session
      */
-    protected $checkoutSession;
+    protected Session $checkoutSession;
 
     /**
      * CheckoutCartAddProductCompleteObserver constructor.
@@ -37,7 +37,7 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
      * @param Observer $observer
      * @return void
      */
-    public function execute(Observer $observer)
+    public function execute(Observer $observer): void
     {
         if ($this->scopeConfig->getValue(Config::XML_PATH_POWERSTEP_TYPE, ScopeInterface::SCOPE_STORE) == Config\Source\PowerstepType::TYPE_POPUP) {
             $product = $observer->getProduct();
@@ -46,14 +46,4 @@ class CheckoutCartAddProductCompleteObserver implements ObserverInterface
             $this->checkoutSession->setClerkProductId($product->getId());
         }
     }
-
-    /**
-     * Determine if Clerk search is enabled
-     *
-     * @return bool
-     */
-//    private function isClerkSearchEnabled()
-//    {
-//        return $this->scopeConfig->isSetFlag(Settings::XML_PATH_SEARCH_ENABLED);
-//    }
 }

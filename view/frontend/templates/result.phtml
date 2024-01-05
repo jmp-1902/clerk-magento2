@@ -1,5 +1,8 @@
 <?php
-/** @var \Clerk\Clerk\Block\Result $block */
+/** @var Result $block */
+
+use Clerk\Clerk\Block\Result;
+
 ?>
 <span <?php echo $block->getSpanAttributes(); ?>></span>
 
@@ -12,12 +15,12 @@
 </div>
 
 <script>
-if(typeof Clerk === 'function'){
-    Clerk('on', 'response', function(content, data){
-        res_len = (data?.product_data.length) ? data?.product_data.length : 0;
-        if(res_len === 0 || ! res_len){
-            document.getElementById('clerk-search-no-results').style.display = 'block';
-        }
-    });
-}
+    if (typeof Clerk === 'function') {
+        Clerk('on', 'response', function (content, data) {
+            const res_len = (data?.product_data.length) ? data?.product_data.length : 0;
+            if (res_len === 0 || !res_len) {
+                document.getElementById('clerk-search-no-results').style.display = 'block';
+            }
+        });
+    }
 </script>
