@@ -378,7 +378,7 @@ class Product extends AbstractAdapter
                 $price_excl_tax = $this->formatPrice($this->getProductTaxPrice($item, $item->getFinalPrice(), false));
                 $list_price = $this->formatPrice($this->getProductTaxPrice($item, $item->getPrice(), true));
                 $list_price_excl_tax = $this->formatPrice($this->getProductTaxPrice($item, $item->getPrice(), false));
-                $stock = $this->getProductStockStateQty($item) ?? $this->getSaleableStockBySku($relatedItem->getSku());
+                $stock = $this->getProductStockStateQty($item) ?? $this->getSaleableStockBySku($item->getSku());
                 $multi_source_stock = $this->getSourceStockBySku($item->getSku());
                 break;
         }
