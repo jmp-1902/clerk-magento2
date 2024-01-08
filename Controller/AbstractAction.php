@@ -25,118 +25,118 @@ abstract class AbstractAction extends Action
     /**
      * @var Api
      */
-    protected Api $api;
+    protected $api;
 
     /**
      * @var RequestApi
      */
-    protected RequestApi $requestApi;
+    protected $requestApi;
 
     /**
      * @var ClerkLogger
      */
-    protected ClerkLogger $clerkLogger;
+    protected $clerkLogger;
 
     /**
      * @var ScopeConfigInterface
      */
-    protected ScopeConfigInterface $scopeConfig;
+    protected $scopeConfig;
 
     /**
      * @var bool
      */
-    protected bool $debug;
+    protected $debug;
 
     /**
      * @var array
      */
-    protected array $fields;
+    protected $fields;
 
     /**
      * @var array
      */
-    protected array $fieldHandlers = [];
+    protected $fieldHandlers = [];
 
     /**
      * @var int
      */
-    protected int $limit;
+    protected $limit;
 
     /**
      * @var int
      */
-    protected int $page;
+    protected $page;
 
     /**
      * @var int
      */
-    protected int $start_date;
+    protected $start_date;
 
     /**
      * @var int
      */
-    protected int $end_date;
+    protected $end_date;
 
     /**
      * @var string
      */
-    protected string $orderBy;
+    protected $orderBy;
 
     /**
      * @var string
      */
-    protected string $order;
+    protected $order;
 
     /**
      * @var array
      */
-    protected array $fieldMap = [];
+    protected $fieldMap = [];
 
     /**
      * @var mixed
      */
-    protected mixed $collectionFactory;
+    protected $collectionFactory;
 
     /**
      * @var LoggerInterface
      */
-    protected LoggerInterface $logger;
+    protected $logger;
 
     /**
      * @var string
      */
-    protected string $eventPrefix = '';
+    protected $eventPrefix = '';
 
     /**
      * @var ModuleList
      */
-    protected ModuleList $moduleList;
+    protected $moduleList;
 
     /**
      * @var StoreManagerInterface
      */
-    protected StoreManagerInterface $storeManager;
+    protected $storeManager;
 
     /**
      * @var ProductMetadataInterface
      */
-    protected ProductMetadataInterface $productMetadata;
+    protected $productMetadata;
     /**
      * @var int
      */
-    protected int $scopeid;
+    protected $scopeid;
     /**
      * @var string
      */
-    protected string $scope;
+    protected $scope;
     /**
      * @var string|null
      */
-    private string|null $privateKey;
+    private $privateKey;
     /**
      * @var string|null
      */
-    private string|null $publicKey;
+    private $publicKey;
 
     /**
      * AbstractAction constructor.
@@ -288,7 +288,7 @@ abstract class AbstractAction extends Action
      * @throws FileSystemException
      * @noinspection PhpPossiblePolymorphicInvocationInspection
      */
-    public function dispatch(RequestInterface $request): ResponseInterface|null
+    public function dispatch(RequestInterface $request)
     {
 
         try {
@@ -344,7 +344,7 @@ abstract class AbstractAction extends Action
      * @return mixed|null
      * @throws FileSystemException
      */
-    public function getRequestBodyParam($key): mixed
+    public function getRequestBodyParam($key)
     {
         try {
 
@@ -367,7 +367,7 @@ abstract class AbstractAction extends Action
      * @return array
      * @throws FileSystemException
      */
-    private function identifyScope(): array
+    private function identifyScope()
     {
         $scope_info = [];
         if (!$this->publicKey) {
@@ -405,7 +405,7 @@ abstract class AbstractAction extends Action
      * @return int|null
      * @throws FileSystemException
      */
-    private function verifyWebsiteKeys(): ?int
+    private function verifyWebsiteKeys()
     {
 
         try {
@@ -425,7 +425,7 @@ abstract class AbstractAction extends Action
         return null;
     }
 
-    public function getWebsites(): array
+    public function getWebsites()
     {
         $websiteIds = [];
         foreach ($this->storeManager->getWebsites() as $website) {
@@ -469,7 +469,7 @@ abstract class AbstractAction extends Action
      * @return string|null
      * @throws FileSystemException
      */
-    private function getPublicWebsiteKey($scopeID): string|null
+    private function getPublicWebsiteKey($scopeID)
     {
         try {
 
@@ -491,7 +491,7 @@ abstract class AbstractAction extends Action
      * @return int|null
      * @throws FileSystemException
      */
-    private function verifyKeys(): ?int
+    private function verifyKeys()
     {
 
         try {
@@ -511,7 +511,7 @@ abstract class AbstractAction extends Action
         return null;
     }
 
-    public function getStores(): array
+    public function getStores()
     {
         return array_keys($this->storeManager->getStores(true));
     }
@@ -523,7 +523,7 @@ abstract class AbstractAction extends Action
      * @return string|null
      * @throws FileSystemException
      */
-    private function getPublicKey($scopeID): ?string
+    private function getPublicKey($scopeID)
     {
         try {
 
@@ -547,7 +547,7 @@ abstract class AbstractAction extends Action
      * @return int|null
      * @throws FileSystemException
      */
-    private function verifyDefaultKeys(): ?int
+    private function verifyDefaultKeys()
     {
 
         try {
@@ -571,7 +571,7 @@ abstract class AbstractAction extends Action
      * @return string|null
      * @throws FileSystemException
      */
-    private function getPublicDefaultKey($scopeID): ?string
+    private function getPublicDefaultKey($scopeID)
     {
         try {
 
@@ -592,7 +592,7 @@ abstract class AbstractAction extends Action
     /**
      * @throws Exception
      */
-    private function authorize(array $scope_info): bool
+    private function authorize(array $scope_info)
     {
         if (empty($scope_info)) {
             return false;
@@ -626,7 +626,7 @@ abstract class AbstractAction extends Action
      * @return bool
      * @throws Exception
      */
-    public function validateJwt(): bool
+    public function validateJwt()
     {
 
         $token_string = $this->getHeaderToken();
@@ -657,7 +657,7 @@ abstract class AbstractAction extends Action
      * Get Token from Request Header
      * @return string
      */
-    private function getHeaderToken(): string
+    private function getHeaderToken()
     {
         try {
 
@@ -691,7 +691,7 @@ abstract class AbstractAction extends Action
      * @return string|null
      * @throws FileSystemException
      */
-    private function getPrivateKey(string $scope, int $scope_id): ?string
+    private function getPrivateKey(string $scope, int $scope_id)
     {
         try {
 
@@ -713,7 +713,7 @@ abstract class AbstractAction extends Action
      * Parse request arguments
      * @throws FileSystemException
      */
-    protected function getArguments(RequestInterface $request): void
+    protected function getArguments(RequestInterface $request)
     {
         try {
 
@@ -775,7 +775,7 @@ abstract class AbstractAction extends Action
      *
      * @return array
      */
-    protected function getDefaultFields(): array
+    protected function getDefaultFields()
     {
         return [];
     }
@@ -787,7 +787,7 @@ abstract class AbstractAction extends Action
      * @return mixed
      * @throws FileSystemException
      */
-    protected function getFieldName($field): mixed
+    protected function getFieldName($field)
     {
 
         try {
@@ -811,7 +811,7 @@ abstract class AbstractAction extends Action
      * @param $field
      * @return mixed
      */
-    protected function getAttributeValue($resourceItem, $field): mixed
+    protected function getAttributeValue($resourceItem, $field)
     {
         return $resourceItem[$field];
     }
@@ -822,7 +822,7 @@ abstract class AbstractAction extends Action
      * @param $field
      * @param callable $handler
      */
-    public function addFieldHandler($field, callable $handler): void
+    public function addFieldHandler($field, callable $handler)
     {
         $this->fieldHandlers[$field] = $handler;
     }

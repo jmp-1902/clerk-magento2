@@ -37,7 +37,7 @@ class FacetTitles extends Field
      * Get configured facet attributes
      * @return array
      */
-    public function getConfiguredAttributes(): array
+    public function getConfiguredAttributes()
     {
         $attributes = $this->config->get(Config::XML_PATH_FACETED_SEARCH_ATTRIBUTES, $this->ctx);
         return is_string($attributes) ? explode(',', $attributes) : [];
@@ -48,11 +48,11 @@ class FacetTitles extends Field
      *
      * @return string
      */
-    public function getScopeLabel(): string
+    public function getScopeLabel()
     {
         try {
             return $this->contextHelper->getStoreNameFromContext();
-        } catch (Exception) {
+        } catch (Exception $ex) {
             return '';
         }
     }
@@ -63,7 +63,7 @@ class FacetTitles extends Field
      * @param AbstractElement $element
      * @return string
      */
-    protected function _getElementHtml(AbstractElement $element): string
+    protected function _getElementHtml(AbstractElement $element)
     {
         $this->setElement($element);
 

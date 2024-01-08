@@ -37,7 +37,7 @@ class MultiselectFacetAttributes extends Field
      * @param AbstractElement $element
      * @return string
      */
-    public function render(AbstractElement $element): string
+    public function render(AbstractElement $element)
     {
         if ($this->config->get(Config::XML_PATH_FACETED_SEARCH_ATTRIBUTES, $this->ctx)) {
             return parent::render($element);

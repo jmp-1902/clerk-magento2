@@ -13,12 +13,12 @@ class Version extends Field
     /**
      * @var ModuleListInterface
      */
-    protected ModuleListInterface $moduleList;
+    protected $moduleList;
 
     /**
      * @var ManagerInterface
      */
-    protected ManagerInterface $messageManager;
+    protected $messageManager;
 
 
     /**
