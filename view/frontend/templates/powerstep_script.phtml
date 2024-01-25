@@ -27,6 +27,14 @@ require(['jquery', 'mage/url'], function($, urlBuilder) {
     $(document).on('ajax:addToCart', function(e) {
         getPowerstepPopup(true);
     });
+
+    document.querySelectorAll('form').forEach(form => {
+      if(form?.action && form.action.includes('checkout/cart/add')){
+        form.addEventListener('submit', function(e){
+          getPowerstepPopup(true);
+        });
+      }
+    });
     
     $(document).ready(function() {
         let product_added_with_reload = (document.querySelectorAll('[data-ui-id="message-success"]').length > 0) ? true : false;
